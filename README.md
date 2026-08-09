@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BeterBedrijfskundig
 
-## Getting Started
+Rapportagetool voor de bedrijfskundige die bedrijfskundige rapportages opstelt over gemiste inkomsten van ondernemers met letsel, in opdracht van verzekeraars.
 
-First, run the development server:
+## Wat de app doet
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Bij het starten van een **zaak** worden vier vragen gesteld (oprichtingsdatum onderneming, rechtsvorm, ongevalsdatum, aantal BV's van het slachtoffer) waarmee wordt bepaald welke documenten verplicht/optioneel zijn.
+- Documenten worden opgehaald uit de Microsoft cloudomgeving (SharePoint/OneDrive) van het bedrijf via de Microsoft Graph API, met de gebruiker ingelogd via Microsoft Entra ID SSO.
+- De inhoud van de documenten (aangiftes, jaarcijfers, contracten) wordt gebruikt als input, samen met historische rapportages als stijl-/structuurreferentie, om met Claude een concept bedrijfskundige rapportage te genereren.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Next.js 16** (App Router) — let op: deze versie wijkt op punten af van eerdere Next.js-kennis. Zie `AGENTS.md` / `node_modules/next/dist/docs/` voordat je aan routing, caching of `proxy.ts` (voorheen `middleware.ts`) werkt.
+- **Supabase** (Postgres) — zaken, documentmetadata, gebruikers.
+- **Auth.js (NextAuth v5)** met Microsoft Entra ID provider — SSO + delegated Graph-toegang.
+- **Microsoft Graph API** (`@microsoft/microsoft-graph-client`) — documenten uit SharePoint/OneDrive.
+- **Anthropic Claude API** (`@anthropic-ai/sdk`) — rapportgeneratie.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup
 
-## Learn More
+1. `npm install`
+2. Kopieer `.env.example` naar `.env.local` en vul in:
+   - Supabase-project (URL + keys)
+   - `ANTHROPIC_API_KEY`
+   - `AUTH_SECRET` (genereer met `npx auth secret`)
+   - Azure app-registratie voor Microsoft Entra ID (zie hieronder)
+3. `npm run dev`
 
-To learn more about Next.js, take a look at the following resources:
+### Azure app-registratie (Microsoft Entra ID)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Voor SSO en Graph-toegang tot SharePoint/OneDrive is een app-registratie nodig in de Azure Portal van het bedrijf:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Entra ID → App registrations → New registration.
+2. Redirect URI: `http://localhost:3000/api/auth/callback/microsoft-entra-id` (en later de productie-URL).
+3. Certificates & secrets → nieuw client secret → `AUTH_MICROSOFT_ENTRA_ID_SECRET`.
+4. API permissions (delegated): `Files.Read.All`, `Sites.Read.All` — admin consent laten geven door IT van het bedrijf.
+5. `AUTH_MICROSOFT_ENTRA_ID_ISSUER` = `https://login.microsoftonline.com/<tenant-id>/v2.0`.
 
-## Deploy on Vercel
+## Openstaande punten
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Datamodel voor "zaak" (documentregels: verplicht/optioneel per rechtsvorm, aantal BV's, jaren rondom ongevalsdatum) nog niet uitgewerkt.
+- Token-refresh voor de Microsoft Graph access token is nog niet geïmplementeerd (`src/auth.ts`) — nodig zodra sessies langer duren dan de levensduur van het access token.
+- AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
+- Historische rapportages als referentiemateriaal voor Claude nog niet ingeladen/geïndexeerd.
