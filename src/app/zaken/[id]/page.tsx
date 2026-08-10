@@ -34,7 +34,13 @@ function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }) {
         <form action={uploadDocument} className="flex items-center gap-2">
           <input type="hidden" name="document_id" value={doc.id} />
           <input type="hidden" name="zaak_id" value={zaakId} />
-          <input type="file" name="file" required className="text-xs" />
+          <input
+            type="file"
+            name="file"
+            accept=".pdf,.jpg,.jpeg,.png,.txt"
+            required
+            className="text-xs"
+          />
           <button type="submit" className="rounded-md bg-black px-3 py-1 text-xs text-white hover:bg-neutral-800">
             Uploaden
           </button>

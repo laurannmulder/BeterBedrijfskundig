@@ -79,18 +79,30 @@ export async function genereerRapportage(formData: FormData) {
 
   const documenten: DocumentFeit[] = []
   for (const doc of geuploadeDocumenten) {
-    let inhoud: string | null = null
-    const { data: bestand } = await supabase.storage.from('documenten').download(doc.storage_path!)
-    if (bestand && (bestand.type === 'text/plain' || bestand.type === '')) {
-      inhoud = await bestand.text()
-    }
-
-    documenten.push({
+    const basis = {
       label: DOCUMENT_LABELS[doc.type as DocumentType],
       jaar: doc.jaar,
       onderneming: doc.onderneming_id ? (ondernemingNaamPerId.get(doc.onderneming_id) ?? null) : null,
-      inhoud,
-    })
+    }
+
+    const { data: bestand } = await supabase.storage.from('documenten').download(doc.storage_path!)
+    if (!bestand) {
+      documenten.push({ ...basis, kind: 'onleesbaar' })
+      continue
+    }
+
+    const mediaType = bestand.type
+    if (mediaType === 'application/pdf') {
+      const buffer = Buffer.from(await bestand.arrayBuffer())
+      documenten.push({ ...basis, kind: 'pdf', base64: buffer.toString('base64') })
+    } else if (mediaType.startsWith('image/')) {
+      const buffer = Buffer.from(await bestand.arrayBuffer())
+      documenten.push({ ...basis, kind: 'afbeelding', base64: buffer.toString('base64'), mediaType })
+    } else if (mediaType === 'text/plain' || mediaType === '') {
+      documenten.push({ ...basis, kind: 'tekst', tekst: await bestand.text() })
+    } else {
+      documenten.push({ ...basis, kind: 'onleesbaar' })
+    }
   }
 
   const ontbrekendeVerplichteDocumenten = documentenRows

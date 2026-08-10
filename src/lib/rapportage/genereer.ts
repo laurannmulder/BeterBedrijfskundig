@@ -1,3 +1,4 @@
+import type Anthropic from '@anthropic-ai/sdk'
 import { createClaudeClient } from '@/lib/claude'
 import { RAPPORTAGE_SJABLOON } from './sjabloon'
 
@@ -8,12 +9,21 @@ export interface OndernemingFeit {
   kvk_nummer: string | null
 }
 
-export interface DocumentFeit {
+// PDF's en scans (foto/scan van een document) worden ongewijzigd aan Claude
+// meegegeven — Claude leest PDF-tekst en scans/afbeeldingen native, dus er is
+// geen aparte OCR-stap nodig. Platte tekst (bv. de fictieve testbestanden)
+// gaat gewoon als tekst mee.
+interface DocumentBasis {
   label: string
   jaar: number | null
   onderneming: string | null
-  inhoud: string | null
 }
+
+export type DocumentFeit =
+  | (DocumentBasis & { kind: 'tekst'; tekst: string })
+  | (DocumentBasis & { kind: 'pdf'; base64: string })
+  | (DocumentBasis & { kind: 'afbeelding'; base64: string; mediaType: string })
+  | (DocumentBasis & { kind: 'onleesbaar' })
 
 export interface RapportageInput {
   naamBetrokkene: string
@@ -22,6 +32,50 @@ export interface RapportageInput {
   ondernemingen: OndernemingFeit[]
   documenten: DocumentFeit[]
   ontbrekendeVerplichteDocumenten: string[]
+}
+
+type ContentBlock = Anthropic.Messages.TextBlockParam | Anthropic.Messages.DocumentBlockParam | Anthropic.Messages.ImageBlockParam
+
+function documentTitel(d: DocumentFeit): string {
+  return `${d.label}${d.jaar ? ` ${d.jaar}` : ''}${d.onderneming ? ` — ${d.onderneming}` : ''}`
+}
+
+function documentBlokken(documenten: DocumentFeit[]): ContentBlock[] {
+  const blokken: ContentBlock[] = []
+
+  for (const d of documenten) {
+    blokken.push({ type: 'text', text: `### ${documentTitel(d)}` })
+
+    switch (d.kind) {
+      case 'tekst':
+        blokken.push({ type: 'text', text: d.tekst })
+        break
+      case 'pdf':
+        blokken.push({
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: d.base64 },
+        })
+        break
+      case 'afbeelding':
+        blokken.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: d.mediaType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+            data: d.base64,
+          },
+        })
+        break
+      case 'onleesbaar':
+        blokken.push({
+          type: 'text',
+          text: '[Bestand aangeleverd maar bestandstype wordt niet ondersteund — handmatige beoordeling door de bedrijfskundige nodig.]',
+        })
+        break
+    }
+  }
+
+  return blokken
 }
 
 export async function genereerRapportageTekst(input: RapportageInput): Promise<string> {
@@ -36,20 +90,23 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<s
     )
     .join('\n')
 
-  const documentenTekst = input.documenten
-    .map((d) => {
-      const titel = `${d.label}${d.jaar ? ` ${d.jaar}` : ''}${d.onderneming ? ` — ${d.onderneming}` : ''}`
-      const inhoud =
-        d.inhoud ??
-        '[Bestand aangeleverd maar inhoud kon niet automatisch worden gelezen — handmatige beoordeling door de bedrijfskundige nodig.]'
-      return `### ${titel}\n${inhoud}`
-    })
-    .join('\n\n')
-
   const ontbrekendTekst =
     input.ontbrekendeVerplichteDocumenten.length > 0
       ? `Let op: de volgende verplichte documenten ontbreken nog en moeten in hoofdstuk 7 (Voortgang) worden genoemd:\n${input.ontbrekendeVerplichteDocumenten.join('\n')}\n\n`
       : ''
+
+  const opdrachtTekst = `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
+
+Betrokkene: ${input.naamBetrokkene}
+Dossiernummer: ${input.dossiernummer ?? 'onbekend'}
+Ongevalsdatum: ${input.ongevalsdatum}
+
+Onderneming(en):
+${ondernemingenTekst}
+
+${ontbrekendTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
+
+  const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten. Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.`
 
   // max_tokens is a cap on thinking + response text combined (thinking is on
   // by default on claude-opus-5) — kept generous, and streamed since output
@@ -67,19 +124,11 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<s
     messages: [
       {
         role: 'user',
-        content: `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
-
-Betrokkene: ${input.naamBetrokkene}
-Dossiernummer: ${input.dossiernummer ?? 'onbekend'}
-Ongevalsdatum: ${input.ongevalsdatum}
-
-Onderneming(en):
-${ondernemingenTekst}
-
-${ontbrekendTekst}Aangeleverde documenten:
-${documentenTekst}
-
-Baseer de analyse uitsluitend op de aangeleverde documenten hierboven. Waar informatie ontbreekt of onduidelijk is, benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.`,
+        content: [
+          { type: 'text', text: opdrachtTekst },
+          ...documentBlokken(input.documenten),
+          { type: 'text', text: afsluitingTekst },
+        ],
       },
     ],
   })
