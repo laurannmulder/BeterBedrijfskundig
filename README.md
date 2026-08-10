@@ -43,7 +43,7 @@ Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die 
 
 Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/actions.ts` → `genereerRapportage`) een conceptrapportage:
 
-1. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage (werkt nu voor platte tekst; PDF/scan-parsing is nog niet gebouwd — zie openstaande punten).
+1. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage. PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd; overige bestandstypen krijgen een placeholder-melding.
 2. `src/lib/rapportage/genereer.ts` bouwt een prompt met die gegevens plus het structuursjabloon in `src/lib/rapportage/sjabloon.ts` (secties/opbouw afgeleid van de twee voorbeeldrapportages — geen cliëntgegevens, puur de structuur).
 3. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden.
 4. Het resultaat wordt opgeslagen in `rapportages` en getoond op `/zaken/[id]/rapportage` (gerenderd met `react-markdown` + `remark-gfm`, incl. tabellen).
@@ -67,7 +67,9 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 
 - `/admin/gebruikers` heeft nog geen rolcheck — elke ingelogde gebruiker kan uitnodigen. Prima voor een klein team, maar te herzien zodra de groep groeit.
 - Holdingstructuren (een BV die aandeelhouder is van een andere BV, zoals in de BV-voorbeeldrapportage) zijn nog niet in de UI gemodelleerd — `ondernemingen.moederonderneming_id` staat er alvast voor klaar.
-- Financiële cijfers uit de documenten worden nu simpel als platte tekst meegestuurd aan Claude; er is geen gestructureerde opslag (bedragen per jaar/post) en geen PDF/scan-parsing — documenten die geen platte tekst zijn worden nu genegeerd met een placeholder-melding in de prompt.
+- Financiële cijfers uit de documenten worden niet gestructureerd opgeslagen (geen bedragen-per-jaar/post in de database) — Claude leest ze rechtstreeks uit de aangeleverde documenten bij elke rapportgeneratie, wat werkt maar herbruikbare/doorzoekbare cijfers in de weg staat.
+- Alleen PDF, JPG/PNG en platte tekst worden ondersteund; .docx/.xlsx-uploads krijgen een "onleesbaar"-placeholder in de prompt.
+- Geen limiet/waarschuwing bij zeer grote of zeer veel documenten (Claude API-limiet: 32 MB per request, 600 pagina's).
 - AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
 - Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
 - Geen versiebeheer/vergelijking tussen meerdere gegenereerde rapportages van dezelfde zaak; de rapportagepagina toont altijd alleen de laatste.
