@@ -3,6 +3,8 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { DOCUMENT_LABELS, type DocumentType } from '@/lib/documenten/vereisten'
+import { genereerRapportageTekst, type DocumentFeit, type OndernemingFeit } from '@/lib/rapportage/genereer'
 
 export async function uploadDocument(formData: FormData) {
   const documentId = String(formData.get('document_id') ?? '')
@@ -43,4 +45,80 @@ export async function uploadDocument(formData: FormData) {
   }
 
   revalidatePath(`/zaken/${zaakId}`)
+}
+
+export async function genereerRapportage(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { data: zaak } = await supabase.from('zaken').select('*').eq('id', zaakId).single()
+  const { data: ondernemingenRows } = await supabase
+    .from('ondernemingen')
+    .select('*')
+    .eq('zaak_id', zaakId)
+  const { data: documentenRows } = await supabase.from('documenten').select('*').eq('zaak_id', zaakId)
+
+  if (!zaak || !ondernemingenRows || !documentenRows) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Zaakgegevens konden niet worden geladen')}`)
+  }
+
+  const ondernemingNaamPerId = new Map(ondernemingenRows.map((o) => [o.id, o.naam]))
+
+  const ondernemingen: OndernemingFeit[] = ondernemingenRows.map((o) => ({
+    naam: o.naam,
+    rechtsvorm: o.rechtsvorm,
+    oprichtingsdatum: o.oprichtingsdatum,
+    kvk_nummer: o.kvk_nummer,
+  }))
+
+  const geuploadeDocumenten = documentenRows.filter((d) => d.status === 'geupload' && d.storage_path)
+
+  const documenten: DocumentFeit[] = []
+  for (const doc of geuploadeDocumenten) {
+    let inhoud: string | null = null
+    const { data: bestand } = await supabase.storage.from('documenten').download(doc.storage_path!)
+    if (bestand && (bestand.type === 'text/plain' || bestand.type === '')) {
+      inhoud = await bestand.text()
+    }
+
+    documenten.push({
+      label: DOCUMENT_LABELS[doc.type as DocumentType],
+      jaar: doc.jaar,
+      onderneming: doc.onderneming_id ? (ondernemingNaamPerId.get(doc.onderneming_id) ?? null) : null,
+      inhoud,
+    })
+  }
+
+  const ontbrekendeVerplichteDocumenten = documentenRows
+    .filter((d) => d.verplicht && d.status === 'ontbreekt')
+    .map((d) => {
+      const label = DOCUMENT_LABELS[d.type as DocumentType]
+      const onderneming = d.onderneming_id ? ondernemingNaamPerId.get(d.onderneming_id) : null
+      return `${label}${d.jaar ? ` ${d.jaar}` : ''}${onderneming ? ` — ${onderneming}` : ''}`
+    })
+
+  const inhoud = await genereerRapportageTekst({
+    naamBetrokkene: zaak.naam_betrokkene,
+    dossiernummer: zaak.dossiernummer,
+    ongevalsdatum: zaak.ongevalsdatum,
+    ondernemingen,
+    documenten,
+    ontbrekendeVerplichteDocumenten,
+  })
+
+  const { error: insertError } = await supabase.from('rapportages').insert({
+    zaak_id: zaakId,
+    inhoud,
+    gegenereerd_door: user!.id,
+  })
+
+  if (insertError) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(insertError.message)}`)
+  }
+
+  redirect(`/zaken/${zaakId}/rapportage`)
 }

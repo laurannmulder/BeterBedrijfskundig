@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { login } from './actions'
 
 export default async function LoginPage({
@@ -9,7 +10,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-xl font-semibold">BeterBedrijfskundig</h1>
+      <Image src="/logo.svg" alt="BeterBedrijfskundig" width={205} height={50} priority />
       <form action={login} className="flex w-full max-w-sm flex-col gap-3">
         <input
           name="email"

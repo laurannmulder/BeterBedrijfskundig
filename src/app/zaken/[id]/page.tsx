@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { DOCUMENT_LABELS, RECHTSVORM_LABELS, type DocumentType, type Rechtsvorm } from '@/lib/documenten/vereisten'
-import { uploadDocument } from './actions'
+import { uploadDocument, genereerRapportage } from './actions'
+import { GenereerKnop } from './genereer-knop'
 
 interface DocumentRow {
   id: string
@@ -68,6 +69,13 @@ export default async function ZaakDetailPage({
     .select('*')
     .eq('zaak_id', id)
     .order('jaar')
+  const { data: laatsteRapportage } = await supabase
+    .from('rapportages')
+    .select('id')
+    .eq('zaak_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   if (!zaak) {
     return (
@@ -96,6 +104,18 @@ export default async function ZaakDetailPage({
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="flex w-full max-w-2xl items-center gap-4">
+        <form action={genereerRapportage}>
+          <input type="hidden" name="zaak_id" value={id} />
+          <GenereerKnop />
+        </form>
+        {laatsteRapportage && (
+          <Link href={`/zaken/${id}/rapportage`} className="text-sm underline">
+            Bekijk laatste rapportage
+          </Link>
+        )}
+      </div>
 
       <section className="w-full max-w-2xl">
         <h2 className="mb-2 font-medium">Aangifte inkomstenbelasting (betrokkene)</h2>

@@ -1,0 +1,18 @@
+<svg width="820" height="200" viewBox="0 0 820 200" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>BeterBedrijfskundig logo</title>
+  <desc>Compacte versie zonder subtekst</desc>
+
+  <g>
+    <rect x="10" y="10" width="180" height="180" rx="24" fill="#0A0A0A"/>
+    <rect x="44" y="114" width="21" height="48" rx="2" fill="#F5F4F0"/>
+    <rect x="88" y="85" width="21" height="77" rx="2" fill="#F5F4F0"/>
+    <rect x="132" y="49" width="21" height="113" rx="2" fill="#F5F4F0"/>
+    <path d="M132 49 L164 49 L164 81 Z" fill="#F5F4F0"/>
+  </g>
+
+  <g font-family="Helvetica, Arial, sans-serif">
+    <text x="216" y="118" font-size="52" letter-spacing="0.3" fill="#0A0A0A">
+      <tspan font-weight="700">Beter</tspan><tspan font-weight="400">Bedrijfskundig</tspan>
+    </text>
+  </g>
+</svg>
