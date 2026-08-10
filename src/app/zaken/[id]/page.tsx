@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { DOCUMENT_LABELS, RECHTSVORM_LABELS, type DocumentType, type Rechtsvorm } from '@/lib/documenten/vereisten'
+import { Header } from '@/components/Header'
 import { uploadDocument, genereerRapportage } from './actions'
 import { GenereerKnop } from './genereer-knop'
 
@@ -88,6 +89,10 @@ export default async function ZaakDetailPage({
 
   const supabase = await createClient()
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   const { data: zaak } = await supabase.from('zaken').select('*').eq('id', id).single()
   const { data: ondernemingen } = await supabase
     .from('ondernemingen')
@@ -106,81 +111,87 @@ export default async function ZaakDetailPage({
 
   if (!zaak) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-        <p>Zaak niet gevonden.</p>
-        <Link href="/zaken" className="text-sm underline">
-          Terug naar zaken
-        </Link>
-      </main>
+      <>
+        <Header userEmail={user?.email} />
+        <main className="flex flex-col items-center justify-center gap-4 p-8">
+          <p>Zaak niet gevonden.</p>
+          <Link href="/" className="text-sm underline">
+            Terug naar zaken
+          </Link>
+        </main>
+      </>
     )
   }
 
   const zaakDocumenten = (documenten ?? []).filter((d) => d.onderneming_id === null)
 
   return (
-    <main className="flex min-h-screen flex-col items-center gap-8 p-8">
-      <div className="w-full max-w-2xl">
-        <Link href="/zaken" className="text-sm underline">
-          ← Alle zaken
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold">{zaak.naam_betrokkene}</h1>
-        <p className="text-sm text-zinc-500">
-          {zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}
-          Ongevalsdatum {zaak.ongevalsdatum}
-        </p>
-      </div>
+    <>
+      <Header userEmail={user?.email} />
+      <main className="mx-auto flex w-full max-w-2xl flex-col items-center gap-8 p-8">
+        <div className="w-full max-w-2xl">
+          <Link href="/" className="text-sm underline">
+            ← Alle zaken
+          </Link>
+          <h1 className="mt-2 text-xl font-semibold">{zaak.naam_betrokkene}</h1>
+          <p className="text-sm text-zinc-500">
+            {zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}
+            Ongevalsdatum {zaak.ongevalsdatum}
+          </p>
+        </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="flex w-full max-w-2xl flex-col gap-3">
-        <form action={genereerRapportage} className="flex flex-col gap-2">
-          <input type="hidden" name="zaak_id" value={id} />
-          <label className="text-sm text-zinc-700">
-            Extra informatie voor deze rapportage (optioneel)
-            <textarea
-              name="extra_context"
-              rows={3}
-              placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <div className="flex items-center gap-4">
-            <GenereerKnop />
-            {!!aantalRapportages && (
-              <Link href={`/zaken/${id}/rapportages`} className="text-sm underline">
-                Bekijk rapportages ({aantalRapportages})
-              </Link>
-            )}
-          </div>
-        </form>
-      </div>
+        <div className="flex w-full max-w-2xl flex-col gap-3">
+          <form action={genereerRapportage} className="flex flex-col gap-2">
+            <input type="hidden" name="zaak_id" value={id} />
+            <label className="text-sm text-zinc-700">
+              Extra informatie voor deze rapportage (optioneel)
+              <textarea
+                name="extra_context"
+                rows={3}
+                placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="flex items-center gap-4">
+              <GenereerKnop />
+              {!!aantalRapportages && (
+                <Link href={`/zaken/${id}/rapportages`} className="text-sm underline">
+                  Bekijk rapportages ({aantalRapportages})
+                </Link>
+              )}
+            </div>
+          </form>
+        </div>
 
-      <section className="w-full max-w-2xl">
-        <h2 className="mb-2 font-medium">Aangifte inkomstenbelasting (betrokkene)</h2>
-        <ul>
-          {zaakDocumenten.map((doc) => (
-            <DocumentRij key={doc.id} zaakId={id} doc={doc} />
-          ))}
-        </ul>
-      </section>
-
-      {ondernemingen?.map((onderneming) => (
-        <section key={onderneming.id} className="w-full max-w-2xl">
-          <h2 className="mb-1 font-medium">
-            {onderneming.naam}{' '}
-            <span className="text-sm font-normal text-zinc-500">
-              ({RECHTSVORM_LABELS[onderneming.rechtsvorm as Rechtsvorm]})
-            </span>
-          </h2>
+        <section className="w-full max-w-2xl">
+          <h2 className="mb-2 font-medium">Aangifte inkomstenbelasting (betrokkene)</h2>
           <ul>
-            {(documenten ?? [])
-              .filter((d) => d.onderneming_id === onderneming.id)
-              .map((doc) => (
-                <DocumentRij key={doc.id} zaakId={id} doc={doc} />
-              ))}
+            {zaakDocumenten.map((doc) => (
+              <DocumentRij key={doc.id} zaakId={id} doc={doc} />
+            ))}
           </ul>
         </section>
-      ))}
-    </main>
+
+        {ondernemingen?.map((onderneming) => (
+          <section key={onderneming.id} className="w-full max-w-2xl">
+            <h2 className="mb-1 font-medium">
+              {onderneming.naam}{' '}
+              <span className="text-sm font-normal text-zinc-500">
+                ({RECHTSVORM_LABELS[onderneming.rechtsvorm as Rechtsvorm]})
+              </span>
+            </h2>
+            <ul>
+              {(documenten ?? [])
+                .filter((d) => d.onderneming_id === onderneming.id)
+                .map((doc) => (
+                  <DocumentRij key={doc.id} zaakId={id} doc={doc} />
+                ))}
+            </ul>
+          </section>
+        ))}
+      </main>
+    </>
   )
 }
