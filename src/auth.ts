@@ -1,6 +1,10 @@
 import NextAuth from 'next-auth'
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 
+// Not wired into the app yet (login/proxy.ts use Supabase Auth instead).
+// Kept for when automatic document sync from SharePoint/OneDrive is picked
+// back up — see README "Openstaande punten".
+//
 // Scopes needed to read case documents from the firm's SharePoint/OneDrive
 // on behalf of the signed-in bedrijfskundige (delegated permissions).
 const GRAPH_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'Files.Read.All', 'Sites.Read.All']

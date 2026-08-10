@@ -1,19 +1,21 @@
-import { auth } from '@/auth'
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
 // Next.js 16 renamed `middleware` to `proxy` for the network-boundary/routing convention.
-export async function proxy(request: Request) {
-  const session = await auth()
+const PUBLIC_PATHS = ['/login', '/auth']
+
+export async function proxy(request: NextRequest) {
+  const { supabaseResponse, user } = await updateSession(request)
   const { pathname } = new URL(request.url)
 
-  const isPublic = pathname.startsWith('/api/auth') || pathname === '/login'
+  const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path))
 
-  if (!session && !isPublic) {
+  if (!user && !isPublic) {
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }
 
-  return NextResponse.next()
+  return supabaseResponse
 }
 
 export const config = {

@@ -1,6 +1,6 @@
-import { login } from './actions'
+import { setPassword } from './actions'
 
-export default async function LoginPage({
+export default async function SetPasswordPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>
@@ -9,22 +9,15 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-      <h1 className="text-xl font-semibold">BeterBedrijfskundig</h1>
-      <form action={login} className="flex w-full max-w-sm flex-col gap-3">
-        <input
-          name="email"
-          type="email"
-          placeholder="E-mailadres"
-          required
-          autoComplete="email"
-          className="rounded-md border border-zinc-300 px-3 py-2"
-        />
+      <h1 className="text-xl font-semibold">Kies een wachtwoord</h1>
+      <form action={setPassword} className="flex w-full max-w-sm flex-col gap-3">
         <input
           name="password"
           type="password"
-          placeholder="Wachtwoord"
+          placeholder="Nieuw wachtwoord"
+          minLength={8}
           required
-          autoComplete="current-password"
+          autoComplete="new-password"
           className="rounded-md border border-zinc-300 px-3 py-2"
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -32,7 +25,7 @@ export default async function LoginPage({
           type="submit"
           className="rounded-md bg-black px-4 py-2 text-white hover:bg-neutral-800"
         >
-          Inloggen
+          Wachtwoord instellen
         </button>
       </form>
     </main>
