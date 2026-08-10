@@ -35,7 +35,7 @@ Bij het aanmaken van een zaak (`/zaken/nieuw`) vul je de betrokkene, ongevalsdat
 - **VOF-contract** — verplicht als rechtsvorm VOF is.
 - **Vennootschapscontract** — verplicht als rechtsvorm BV is.
 
-Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload".
+Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload", met de bestandsnaam als link (signed URL, 10 min geldig) ernaast. Een document kan worden vervangen door gewoon opnieuw te uploaden ("Vervangen") — bij een andere bestandsnaam wordt het oude bestand automatisch opgeruimd.
 
 Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die zijn doorgenomen voor de opzet — zie ook de opmerking over holdingstructuren hieronder.
 
@@ -43,12 +43,15 @@ Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die 
 
 Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/actions.ts` → `genereerRapportage`) een conceptrapportage:
 
-1. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage. PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd; overige bestandstypen krijgen een placeholder-melding.
-2. `src/lib/rapportage/genereer.ts` bouwt een prompt met die gegevens plus het structuursjabloon in `src/lib/rapportage/sjabloon.ts` (secties/opbouw afgeleid van de twee voorbeeldrapportages — geen cliëntgegevens, puur de structuur).
-3. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden.
-4. Het resultaat wordt opgeslagen in `rapportages` en getoond op `/zaken/[id]/rapportage` (gerenderd met `react-markdown` + `remark-gfm`, incl. tabellen).
+1. Optioneel vul je eerst een tekstvak in met **extra informatie/instructies** voor deze specifieke versie (bv. iets uit een telefoongesprek). Dit wordt meegestuurd in de prompt én bewaard bij de gegenereerde versie.
+2. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage. PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd; overige bestandstypen krijgen een placeholder-melding.
+3. `src/lib/rapportage/genereer.ts` bouwt een prompt met die gegevens plus het structuursjabloon in `src/lib/rapportage/sjabloon.ts` (secties/opbouw afgeleid van de twee voorbeeldrapportages — geen cliëntgegevens, puur de structuur).
+4. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden.
+5. Het resultaat wordt opgeslagen als nieuwe rij in `rapportages` (status standaard `concept`) en getoond op `/zaken/[id]/rapportages/[rapportageId]`.
 
 Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in hoofdstuk 7 (Voortgang) in plaats van erover te zwijgen.
+
+**Versies:** elke generatie maakt een nieuwe rij aan — niets wordt overschreven. `/zaken/[id]/rapportages` toont alle versies van een zaak (tijdstip, status, en een preview van eventuele extra informatie). Op elke versie kan de status gewisseld worden tussen `concept` en `definitief`.
 
 ## Setup
 
@@ -58,7 +61,7 @@ Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in
    - Supabase-project (URL + anon key + service role key)
    - `ANTHROPIC_API_KEY` (via [console.anthropic.com](https://console.anthropic.com) → Settings → API Keys — vereist een account met credits, geen gratis tier)
 3. In het Supabase-dashboard: Authentication → URL Configuration → voeg `{NEXT_PUBLIC_APP_URL}/auth/confirm` toe aan de redirect URLs.
-4. Draai de migraties in `supabase/migrations/` (in volgorde: `0001_zaken.sql`, `0002_rapportages.sql`) in de Supabase SQL Editor.
+4. Draai de migraties in `supabase/migrations/` in volgorde (`0001_zaken.sql`, `0002_rapportages.sql`, `0003_rapportages_extra.sql`) in de Supabase SQL Editor.
 5. `npm run dev`
 
 De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard → Authentication → Add user, of via de Supabase CLI), aangezien `/admin/gebruikers` zelf al een ingelogde gebruiker vereist.
@@ -72,5 +75,5 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 - Geen limiet/waarschuwing bij zeer grote of zeer veel documenten (Claude API-limiet: 32 MB per request, 600 pagina's).
 - AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
 - Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
-- Geen versiebeheer/vergelijking tussen meerdere gegenereerde rapportages van dezelfde zaak; de rapportagepagina toont altijd alleen de laatste.
+- Geen vergelijking tussen versies (diff/wat is er veranderd) — je kunt alle versies los bekijken, maar niet naast elkaar.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.
