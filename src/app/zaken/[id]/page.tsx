@@ -14,8 +14,17 @@ interface DocumentRow {
   storage_path: string | null
 }
 
-function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }) {
+async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }) {
   const label = DOCUMENT_LABELS[doc.type] + (doc.jaar ? ` ${doc.jaar}` : '')
+  const isGeupload = doc.status !== 'ontbreekt'
+  const bestandsnaam = doc.storage_path?.split('/').pop() ?? null
+
+  let bekijkUrl: string | null = null
+  if (isGeupload && doc.storage_path) {
+    const supabase = await createClient()
+    const { data } = await supabase.storage.from('documenten').createSignedUrl(doc.storage_path, 600)
+    bekijkUrl = data?.signedUrl ?? null
+  }
 
   return (
     <li className="flex items-center justify-between gap-4 border-b border-zinc-100 py-2 text-sm">
@@ -30,7 +39,24 @@ function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }) {
         </span>
       </span>
 
-      {doc.status === 'ontbreekt' ? (
+      <div className="flex items-center gap-3">
+        {isGeupload &&
+          bestandsnaam &&
+          (bekijkUrl ? (
+            <a
+              href={bekijkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="max-w-[180px] truncate text-xs text-green-700 underline"
+              title={bestandsnaam}
+            >
+              {bestandsnaam}
+            </a>
+          ) : (
+            <span className="max-w-[180px] truncate text-xs text-green-700" title={bestandsnaam}>
+              {bestandsnaam}
+            </span>
+          ))}
         <form action={uploadDocument} className="flex items-center gap-2">
           <input type="hidden" name="document_id" value={doc.id} />
           <input type="hidden" name="zaak_id" value={zaakId} />
@@ -42,12 +68,10 @@ function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }) {
             className="text-xs"
           />
           <button type="submit" className="rounded-md bg-black px-3 py-1 text-xs text-white hover:bg-neutral-800">
-            Uploaden
+            {isGeupload ? 'Vervangen' : 'Uploaden'}
           </button>
         </form>
-      ) : (
-        <span className="text-green-700">geüpload</span>
-      )}
+      </div>
     </li>
   )
 }
@@ -75,13 +99,10 @@ export default async function ZaakDetailPage({
     .select('*')
     .eq('zaak_id', id)
     .order('jaar')
-  const { data: laatsteRapportage } = await supabase
+  const { count: aantalRapportages } = await supabase
     .from('rapportages')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('zaak_id', id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   if (!zaak) {
     return (
@@ -111,16 +132,27 @@ export default async function ZaakDetailPage({
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      <div className="flex w-full max-w-2xl items-center gap-4">
-        <form action={genereerRapportage}>
+      <div className="flex w-full max-w-2xl flex-col gap-3">
+        <form action={genereerRapportage} className="flex flex-col gap-2">
           <input type="hidden" name="zaak_id" value={id} />
-          <GenereerKnop />
+          <label className="text-sm text-zinc-700">
+            Extra informatie voor deze rapportage (optioneel)
+            <textarea
+              name="extra_context"
+              rows={3}
+              placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <div className="flex items-center gap-4">
+            <GenereerKnop />
+            {!!aantalRapportages && (
+              <Link href={`/zaken/${id}/rapportages`} className="text-sm underline">
+                Bekijk rapportages ({aantalRapportages})
+              </Link>
+            )}
+          </div>
         </form>
-        {laatsteRapportage && (
-          <Link href={`/zaken/${id}/rapportage`} className="text-sm underline">
-            Bekijk laatste rapportage
-          </Link>
-        )}
       </div>
 
       <section className="w-full max-w-2xl">

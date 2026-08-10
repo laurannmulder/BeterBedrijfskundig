@@ -32,6 +32,7 @@ export interface RapportageInput {
   ondernemingen: OndernemingFeit[]
   documenten: DocumentFeit[]
   ontbrekendeVerplichteDocumenten: string[]
+  extraContext: string | null
 }
 
 type ContentBlock = Anthropic.Messages.TextBlockParam | Anthropic.Messages.DocumentBlockParam | Anthropic.Messages.ImageBlockParam
@@ -95,6 +96,10 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<s
       ? `Let op: de volgende verplichte documenten ontbreken nog en moeten in hoofdstuk 7 (Voortgang) worden genoemd:\n${input.ontbrekendeVerplichteDocumenten.join('\n')}\n\n`
       : ''
 
+  const extraContextTekst = input.extraContext
+    ? `Aanvullende informatie/instructies van de bedrijfskundige voor deze versie (weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.extraContext}\n\n`
+    : ''
+
   const opdrachtTekst = `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
 
 Betrokkene: ${input.naamBetrokkene}
@@ -104,7 +109,7 @@ Ongevalsdatum: ${input.ongevalsdatum}
 Onderneming(en):
 ${ondernemingenTekst}
 
-${ontbrekendTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
+${ontbrekendTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
 
   const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten. Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.`
 

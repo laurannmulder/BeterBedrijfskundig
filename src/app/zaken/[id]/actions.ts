@@ -20,7 +20,18 @@ export async function uploadDocument(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const { data: bestaandDocument } = await supabase
+    .from('documenten')
+    .select('storage_path')
+    .eq('id', documentId)
+    .single()
+
   const path = `${zaakId}/${documentId}/${file.name}`
+
+  // Bij vervangen met een andere bestandsnaam blijft anders het oude bestand als wees achter.
+  if (bestaandDocument?.storage_path && bestaandDocument.storage_path !== path) {
+    await supabase.storage.from('documenten').remove([bestaandDocument.storage_path])
+  }
 
   const { error: uploadError } = await supabase.storage
     .from('documenten')
@@ -49,6 +60,7 @@ export async function uploadDocument(formData: FormData) {
 
 export async function genereerRapportage(formData: FormData) {
   const zaakId = String(formData.get('zaak_id') ?? '')
+  const extraContext = String(formData.get('extra_context') ?? '').trim() || null
   const supabase = await createClient()
 
   const {
@@ -120,17 +132,43 @@ export async function genereerRapportage(formData: FormData) {
     ondernemingen,
     documenten,
     ontbrekendeVerplichteDocumenten,
+    extraContext,
   })
 
-  const { error: insertError } = await supabase.from('rapportages').insert({
-    zaak_id: zaakId,
-    inhoud,
-    gegenereerd_door: user!.id,
-  })
+  const { data: nieuweRapportage, error: insertError } = await supabase
+    .from('rapportages')
+    .insert({
+      zaak_id: zaakId,
+      inhoud,
+      extra_context: extraContext,
+      gegenereerd_door: user!.id,
+    })
+    .select('id')
+    .single()
 
-  if (insertError) {
-    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(insertError.message)}`)
+  if (insertError || !nieuweRapportage) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(insertError?.message ?? 'Opslaan rapportage mislukt')}`)
   }
 
-  redirect(`/zaken/${zaakId}/rapportage`)
+  redirect(`/zaken/${zaakId}/rapportages/${nieuweRapportage.id}`)
+}
+
+export async function wijzigRapportageStatus(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const rapportageId = String(formData.get('rapportage_id') ?? '')
+  const status = String(formData.get('status') ?? '')
+
+  if (status !== 'concept' && status !== 'definitief') {
+    redirect(`/zaken/${zaakId}/rapportages/${rapportageId}?error=${encodeURIComponent('Ongeldige status')}`)
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('rapportages').update({ status }).eq('id', rapportageId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}/rapportages/${rapportageId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}/rapportages`)
+  redirect(`/zaken/${zaakId}/rapportages/${rapportageId}`)
 }
