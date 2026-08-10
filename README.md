@@ -39,15 +39,26 @@ Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabas
 
 Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die zijn doorgenomen voor de opzet — zie ook de opmerking over holdingstructuren hieronder.
 
+## Rapportgeneratie
+
+Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/actions.ts` → `genereerRapportage`) een conceptrapportage:
+
+1. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage (werkt nu voor platte tekst; PDF/scan-parsing is nog niet gebouwd — zie openstaande punten).
+2. `src/lib/rapportage/genereer.ts` bouwt een prompt met die gegevens plus het structuursjabloon in `src/lib/rapportage/sjabloon.ts` (secties/opbouw afgeleid van de twee voorbeeldrapportages — geen cliëntgegevens, puur de structuur).
+3. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden.
+4. Het resultaat wordt opgeslagen in `rapportages` en getoond op `/zaken/[id]/rapportage` (gerenderd met `react-markdown` + `remark-gfm`, incl. tabellen).
+
+Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in hoofdstuk 7 (Voortgang) in plaats van erover te zwijgen.
+
 ## Setup
 
 1. `npm install`
 2. Kopieer `.env.example` naar `.env.local` en vul in:
    - `NEXT_PUBLIC_APP_URL` (bv. `http://localhost:3000`)
    - Supabase-project (URL + anon key + service role key)
-   - `ANTHROPIC_API_KEY`
+   - `ANTHROPIC_API_KEY` (via [console.anthropic.com](https://console.anthropic.com) → Settings → API Keys — vereist een account met credits, geen gratis tier)
 3. In het Supabase-dashboard: Authentication → URL Configuration → voeg `{NEXT_PUBLIC_APP_URL}/auth/confirm` toe aan de redirect URLs.
-4. Draai de migratie in `supabase/migrations/0001_zaken.sql` in de Supabase SQL Editor (tabellen `zaken`/`ondernemingen`/`documenten` + de `documenten`-Storage-bucket).
+4. Draai de migraties in `supabase/migrations/` (in volgorde: `0001_zaken.sql`, `0002_rapportages.sql`) in de Supabase SQL Editor.
 5. `npm run dev`
 
 De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard → Authentication → Add user, of via de Supabase CLI), aangezien `/admin/gebruikers` zelf al een ingelogde gebruiker vereist.
@@ -56,7 +67,8 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 
 - `/admin/gebruikers` heeft nog geen rolcheck — elke ingelogde gebruiker kan uitnodigen. Prima voor een klein team, maar te herzien zodra de groep groeit.
 - Holdingstructuren (een BV die aandeelhouder is van een andere BV, zoals in de BV-voorbeeldrapportage) zijn nog niet in de UI gemodelleerd — `ondernemingen.moederonderneming_id` staat er alvast voor klaar.
-- Financiële cijfers uit de documenten (omzet, kostenposten, nettoresultaat per jaar) worden nog niet gestructureerd opgeslagen — dat is nodig zodra de financiële analyse/would-be-berekening en rapportgeneratie gebouwd worden.
+- Financiële cijfers uit de documenten worden nu simpel als platte tekst meegestuurd aan Claude; er is geen gestructureerde opslag (bedragen per jaar/post) en geen PDF/scan-parsing — documenten die geen platte tekst zijn worden nu genegeerd met een placeholder-melding in de prompt.
 - AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
-- Historische rapportages als referentiemateriaal voor Claude nog niet ingeladen/geïndexeerd.
+- Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
+- Geen versiebeheer/vergelijking tussen meerdere gegenereerde rapportages van dezelfde zaak; de rapportagepagina toont altijd alleen de laatste.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.
