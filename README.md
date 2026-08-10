@@ -25,6 +25,12 @@ Rapportagetool voor de bedrijfskundige die bedrijfskundige rapportages opstelt o
 
 Standaard verstuurt Supabase deze e-mails via zijn eigen (rate-limited) mailserver — prima om mee te testen. Voor productiegebruik: configureer custom SMTP (bv. Resend, zoals bij Bloom) in de Supabase-projectinstellingen onder Authentication → Emails.
 
+## Dashboard
+
+Na het inloggen (`/`, `src/app/page.tsx`) zie je direct een overzicht van alle zaken, gesorteerd op **laatst bewerkt**. Dat veld (`zaken.laatst_bewerkt`) wordt automatisch bijgewerkt door database-triggers zodra er iets verandert aan een gekoppelde onderneming, document of rapportage (zie `supabase/migrations/0004_zaken_laatst_bewerkt.sql`) — de app-code hoeft dit zelf niet bij te houden. Per zaak zie je: documentvoortgang (verplichte documenten geüpload / totaal), de status van de laatste rapportage (of "geen rapportage"), en hoelang geleden de zaak voor het laatst is bewerkt. Bovenaan staat een korte samenvatting (aantal zaken, aantal met ontbrekende verplichte documenten) en een knop om een nieuwe zaak te starten.
+
+Een gedeelde `Header` (`src/components/Header.tsx` — logo, navigatie, ingelogde gebruiker, uitloggen) staat op alle ingelogde pagina's.
+
 ## Zaken en documentchecklist
 
 Bij het aanmaken van een zaak (`/zaken/nieuw`) vul je de betrokkene, ongevalsdatum en één of meer ondernemingen in (naam, rechtsvorm, oprichtingsdatum, KvK-nummer). Op basis daarvan berekent `src/lib/documenten/vereisten.ts` welke documenten verplicht/optioneel zijn en voor welke jaren, en worden die als rijen in `documenten` gezet:
@@ -61,7 +67,7 @@ Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in
    - Supabase-project (URL + anon key + service role key)
    - `ANTHROPIC_API_KEY` (via [console.anthropic.com](https://console.anthropic.com) → Settings → API Keys — vereist een account met credits, geen gratis tier)
 3. In het Supabase-dashboard: Authentication → URL Configuration → voeg `{NEXT_PUBLIC_APP_URL}/auth/confirm` toe aan de redirect URLs.
-4. Draai de migraties in `supabase/migrations/` in volgorde (`0001_zaken.sql`, `0002_rapportages.sql`, `0003_rapportages_extra.sql`) in de Supabase SQL Editor.
+4. Draai de migraties in `supabase/migrations/` in volgorde (`0001_zaken.sql`, `0002_rapportages.sql`, `0003_rapportages_extra.sql`, `0004_zaken_laatst_bewerkt.sql`) in de Supabase SQL Editor.
 5. `npm run dev`
 
 De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard → Authentication → Add user, of via de Supabase CLI), aangezien `/admin/gebruikers` zelf al een ingelogde gebruiker vereist.
