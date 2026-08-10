@@ -25,6 +25,20 @@ Rapportagetool voor de bedrijfskundige die bedrijfskundige rapportages opstelt o
 
 Standaard verstuurt Supabase deze e-mails via zijn eigen (rate-limited) mailserver — prima om mee te testen. Voor productiegebruik: configureer custom SMTP (bv. Resend, zoals bij Bloom) in de Supabase-projectinstellingen onder Authentication → Emails.
 
+## Zaken en documentchecklist
+
+Bij het aanmaken van een zaak (`/zaken/nieuw`) vul je de betrokkene, ongevalsdatum en één of meer ondernemingen in (naam, rechtsvorm, oprichtingsdatum, KvK-nummer). Op basis daarvan berekent `src/lib/documenten/vereisten.ts` welke documenten verplicht/optioneel zijn en voor welke jaren, en worden die als rijen in `documenten` gezet:
+
+- **Aangifte inkomstenbelasting** — verplicht, op zaakniveau (hoort bij de betrokkene, niet bij één onderneming), 5 jaar vóór het ongevalsjaar t/m nu.
+- **Jaarcijfers** — verplicht, per onderneming, zelfde jarenreeks (of vanaf oprichting als de onderneming korter bestaat).
+- **Aangifte omzetbelasting, leasecontract, huurcontract, bankafschriften, arbeidsovereenkomsten** — optioneel, per onderneming, zelfde jaren als de jaarcijfers.
+- **VOF-contract** — verplicht als rechtsvorm VOF is.
+- **Vennootschapscontract** — verplicht als rechtsvorm BV is.
+
+Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload".
+
+Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die zijn doorgenomen voor de opzet — zie ook de opmerking over holdingstructuren hieronder.
+
 ## Setup
 
 1. `npm install`
@@ -33,15 +47,16 @@ Standaard verstuurt Supabase deze e-mails via zijn eigen (rate-limited) mailserv
    - Supabase-project (URL + anon key + service role key)
    - `ANTHROPIC_API_KEY`
 3. In het Supabase-dashboard: Authentication → URL Configuration → voeg `{NEXT_PUBLIC_APP_URL}/auth/confirm` toe aan de redirect URLs.
-4. `npm run dev`
+4. Draai de migratie in `supabase/migrations/0001_zaken.sql` in de Supabase SQL Editor (tabellen `zaken`/`ondernemingen`/`documenten` + de `documenten`-Storage-bucket).
+5. `npm run dev`
 
 De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard → Authentication → Add user, of via de Supabase CLI), aangezien `/admin/gebruikers` zelf al een ingelogde gebruiker vereist.
 
 ## Openstaande punten
 
-- Datamodel voor "zaak" (documentregels: verplicht/optioneel per rechtsvorm, aantal BV's, jaren rondom ongevalsdatum) nog niet uitgewerkt.
-- Handmatige document-upload (Supabase Storage) nog niet gebouwd.
 - `/admin/gebruikers` heeft nog geen rolcheck — elke ingelogde gebruiker kan uitnodigen. Prima voor een klein team, maar te herzien zodra de groep groeit.
+- Holdingstructuren (een BV die aandeelhouder is van een andere BV, zoals in de BV-voorbeeldrapportage) zijn nog niet in de UI gemodelleerd — `ondernemingen.moederonderneming_id` staat er alvast voor klaar.
+- Financiële cijfers uit de documenten (omzet, kostenposten, nettoresultaat per jaar) worden nog niet gestructureerd opgeslagen — dat is nodig zodra de financiële analyse/would-be-berekening en rapportgeneratie gebouwd worden.
 - AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
 - Historische rapportages als referentiemateriaal voor Claude nog niet ingeladen/geïndexeerd.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.

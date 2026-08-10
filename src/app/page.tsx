@@ -12,6 +12,9 @@ export default async function Home() {
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <h1 className="text-2xl font-semibold">BeterBedrijfskundig</h1>
       <p className="text-zinc-600">Ingelogd als {user?.email}</p>
+      <Link href="/zaken" className="text-sm underline">
+        Zaken
+      </Link>
       <Link href="/admin/gebruikers" className="text-sm underline">
         Gebruikers uitnodigen
       </Link>
