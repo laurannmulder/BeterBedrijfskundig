@@ -1,10 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-// Next.js 16 renamed `middleware` to `proxy` for the network-boundary/routing convention.
+// Using the classic `middleware.ts` name (rather than Next.js 16's `proxy.ts`
+// rename) — Vercel's deploy pipeline appeared not to route any requests at
+// all under `proxy.ts` (every path 404'd at the edge with zero function
+// invocations, despite a clean build). `middleware.ts` remains fully
+// supported in Next.js 16, just deprecated in favor of `proxy.ts`.
 const PUBLIC_PATHS = ['/login', '/auth']
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request)
   const { pathname } = new URL(request.url)
 
