@@ -62,6 +62,8 @@ Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in
 
 **Versies:** elke generatie maakt een nieuwe rij aan — niets wordt overschreven. `/zaken/[id]/rapportages` toont alle versies van een zaak (tijdstip, status, en een preview van eventuele extra informatie). Op elke versie kan de status gewisseld worden tussen `concept` en `definitief`.
 
+**Download als Word:** op elke versiepagina zet de knop **"Download als Word"** (`/zaken/[id]/rapportages/[rapportageId]/docx`) de markdown-inhoud om naar een `.docx`-bestand. `src/lib/rapportage/naar-docx.ts` parseert de markdown naar een AST (`unified`/`remark-parse`/`remark-gfm`) en zet koppen, vet/cursief, tabellen, genummerde/opsommingslijsten en blockquotes om naar `docx`-elementen; de route handler (`.../docx/route.ts`) stuurt het resultaat terug als download met een bestandsnaam op basis van de betrokkene en de datum.
+
 ## Deployment
 
 Live op Vercel: **https://beter-bedrijfskundig.vercel.app** (GitHub: `laurannmulder/BeterBedrijfskundig`, auto-deploy vanaf `main`). Productie en lokale ontwikkeling delen op dit moment dezelfde Supabase-database.
