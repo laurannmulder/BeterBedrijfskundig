@@ -22,8 +22,11 @@ Rapportagetool voor de bedrijfskundige die bedrijfskundige rapportages opstelt o
 2. Supabase verstuurt een e-mail met een link naar `/auth/confirm`, die de uitnodiging verifieert en de gebruiker naar `/wachtwoord-instellen` stuurt.
 3. Daar kiest de gebruiker zelf een wachtwoord; daarna is de sessie actief.
 4. Inloggen daarna gewoon via `/login` met e-mail + wachtwoord.
+5. **Wachtwoord vergeten** (`/wachtwoord-vergeten`) stuurt via `supabase.auth.resetPasswordForEmail` een reset-mail, die dezelfde `/auth/confirm` → `/wachtwoord-instellen`-route gebruikt als de uitnodigingsflow.
 
-Standaard verstuurt Supabase deze e-mails via zijn eigen (rate-limited) mailserver — prima om mee te testen. Voor productiegebruik: configureer custom SMTP (bv. Resend, zoals bij Bloom) in de Supabase-projectinstellingen onder Authentication → Emails.
+`/auth/confirm` verifieert het token pas ná een expliciete klik op een knop (niet automatisch bij het openen van de link) — dit beschermt tegen mail-scanners zoals Microsoft Outlook Safe Links die anders de eenmalige link al "verbruiken" voordat de mens klikt (zie `feedback_email_invite_scanner_gotcha` in het projectgeheugen).
+
+**Bekende beperking (2026-08-11):** deze bescherming werkt alleen als de e-mail rechtstreeks naar `/auth/confirm` linkt. Met Supabase's **standaard mailer** (nu in gebruik) verwijst de link eerst naar Supabase's eigen `/auth/v1/verify`-endpoint, en die eerste stop lijkt door mail-scanners al "geklikt" te worden — waardoor wachtwoord-reset-links soms toch al verlopen zijn voordat de gebruiker zelf klikt. De structurele fix is de e-mailtemplates (Authentication → Email Templates, "Reset Password" en "Invite user") aanpassen zodat de link direct naar `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (resp. `type=invite`) wijst, in plaats van `{{ .ConfirmationURL }}`. **Dit vereist custom SMTP** — Supabase staat templates aanpassen niet toe op het gratis plan met de standaard mailer. Bewust uitgesteld; zie openstaande punten.
 
 ## Dashboard
 
@@ -59,6 +62,17 @@ Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in
 
 **Versies:** elke generatie maakt een nieuwe rij aan — niets wordt overschreven. `/zaken/[id]/rapportages` toont alle versies van een zaak (tijdstip, status, en een preview van eventuele extra informatie). Op elke versie kan de status gewisseld worden tussen `concept` en `definitief`.
 
+## Deployment
+
+Live op Vercel: **https://beter-bedrijfskundig.vercel.app** (GitHub: `laurannmulder/BeterBedrijfskundig`, auto-deploy vanaf `main`). Productie en lokale ontwikkeling delen op dit moment dezelfde Supabase-database.
+
+Bij het opzetten zijn drie losse Vercel-eigenaardigheden tegengekomen — nuttig om te weten bij een nieuw project:
+1. **Vercel Authentication** (Settings → Deployment Protection) stond standaard aan en blokkeerde alle bezoekers zonder Vercel-account — moest uit voor Production.
+2. **Framework Preset stond op "Other"** in plaats van "Next.js" (gebeurt als een project niet via de standaard "Import Git Repository"-wizard wordt aangemaakt/gekoppeld) — hierdoor werden er geen serverless functions aangemaakt en gaf letterlijk elke route 404, ondanks een geslaagde build.
+3. **`middleware.ts` i.p.v. `proxy.ts`**: onder de nieuwe Next.js 16-naamgeving `proxy.ts` routete Vercel geen enkel verzoek (0 function-invocations in de logs, ondanks een correcte build-manifest). Teruggezet naar de klassieke `middleware.ts`-naam, die in Next.js 16 nog volledig werkt (alleen gedeprecieerd) — sindsdien werkt het probleemloos. Nog niet geverifieerd of dit een Vercel-platformbeperking is die inmiddels is opgelost.
+
+Daarnaast: de auth-middleware ving in eerste instantie ook statische bestanden (zoals `/logo.svg`) af en stuurde die door naar `/login` voor niet-ingelogde bezoekers. De matcher in `src/middleware.ts` sluit nu gangbare statische extensies uit.
+
 ## Setup
 
 1. `npm install`
@@ -83,3 +97,4 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 - Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
 - Geen vergelijking tussen versies (diff/wat is er veranderd) — je kunt alle versies los bekijken, maar niet naast elkaar.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.
+- **Custom SMTP (Resend) nog niet ingesteld** — bewust uitgesteld. Zonder custom SMTP kunnen de e-mailtemplates niet aangepast worden (Supabase-beperking op het gratis plan), waardoor de wachtwoord-reset-link kwetsbaar blijft voor mail-scanners zoals Outlook Safe Links (zie "Auth-flow" hierboven). Vereist een geverifieerd domein bij Resend — nog geen domein voor dit project geverifieerd (en Bloom's Resend-koppeling blijkt ook geen geverifieerd domein te hebben, gebruikt de `onboarding@resend.dev`-testafzender, die vermoedelijk alleen aankomt bij het eigen Resend-accountadres — dat is een los aandachtspunt voor Bloom).
