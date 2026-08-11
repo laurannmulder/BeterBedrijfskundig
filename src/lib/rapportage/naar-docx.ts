@@ -19,6 +19,10 @@ import {
 
 const TABEL_BREEDTE_DXA = 9000
 
+// Matcht het lettertype van de rapportageweergave in de app (body font-family: Arial, Helvetica, sans-serif).
+const LETTERTYPE = 'Arial'
+const TEKSTKLEUR = '171717'
+
 function inlineNaarRuns(
   nodes: PhrasingContent[],
   opts: { bold?: boolean; italics?: boolean } = {}
@@ -107,6 +111,7 @@ function lijstNaarDocx(node: MdList): Paragraph[] {
         reference: node.ordered ? 'genummerde-lijst' : 'opsomming',
         level: 0,
       },
+      spacing: { after: 60 },
       children: inlineNaarRuns(inline),
     })
   })
@@ -126,9 +131,7 @@ function blokkenNaarDocx(nodes: RootContent[]): (Paragraph | Table)[] {
         )
         break
       case 'paragraph':
-        elementen.push(
-          new Paragraph({ children: inlineNaarRuns(node.children), spacing: { after: 160 } })
-        )
+        elementen.push(new Paragraph({ children: inlineNaarRuns(node.children) }))
         break
       case 'list':
         elementen.push(...lijstNaarDocx(node))
@@ -171,6 +174,34 @@ export async function genereerDocxBuffer(markdown: string): Promise<Buffer> {
   const tree = unified().use(remarkParse).use(remarkGfm).parse(markdown) as Root
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: LETTERTYPE, size: 22, color: TEKSTKLEUR },
+          paragraph: { spacing: { after: 200 } },
+        },
+        heading1: {
+          run: { font: LETTERTYPE, size: 38, bold: true, color: TEKSTKLEUR },
+          paragraph: { spacing: { before: 480, after: 240 } },
+        },
+        heading2: {
+          run: { font: LETTERTYPE, size: 30, bold: true, color: TEKSTKLEUR },
+          paragraph: { spacing: { before: 400, after: 200 } },
+        },
+        heading3: {
+          run: { font: LETTERTYPE, size: 26, bold: true, color: TEKSTKLEUR },
+          paragraph: { spacing: { before: 320, after: 160 } },
+        },
+        heading4: {
+          run: { font: LETTERTYPE, size: 24, bold: true, color: TEKSTKLEUR },
+          paragraph: { spacing: { before: 280, after: 120 } },
+        },
+        heading5: {
+          run: { font: LETTERTYPE, size: 22, bold: true, color: TEKSTKLEUR },
+          paragraph: { spacing: { before: 240, after: 120 } },
+        },
+      },
+    },
     numbering: {
       config: [
         {
