@@ -44,16 +44,18 @@ Bij het aanmaken van een zaak (`/zaken/nieuw`) vul je de betrokkene, ongevalsdat
 - **VOF-contract** — verplicht als rechtsvorm VOF is.
 - **Vennootschapscontract** — verplicht als rechtsvorm BV is.
 
-Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload", met de bestandsnaam als link (signed URL, 10 min geldig) ernaast. Een document kan worden vervangen door gewoon opnieuw te uploaden ("Vervangen") — bij een andere bestandsnaam wordt het oude bestand automatisch opgeruimd.
+Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload", met de bestandsnaam als link (signed URL, 10 min geldig) ernaast. Een document kan worden vervangen door gewoon opnieuw te uploaden ("Vervangen") — bij een andere bestandsnaam wordt het oude bestand automatisch opgeruimd. De lijst is per onderneming onderverdeeld in subcategorieën per documenttype (Jaarcijfers, Aangifte omzetbelasting, etc. — volgorde in `ONDERNEMING_DOCUMENT_VOLGORDE`), in plaats van één doorlopende lijst gesorteerd op jaar.
 
 Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die zijn doorgenomen voor de opzet — zie ook de opmerking over holdingstructuren hieronder.
+
+**Overige documenten:** bij het genereren van een rapportage kun je naast het tekstvak met extra informatie ook meteen één of meerdere bestanden meegeven (`extra_bestanden`, multi-select). Deze worden geüpload, krijgen documenttype `overig` (geen vaste plek in de checklist, altijd optioneel) en verschijnen zowel in de "Overige documenten"-sectie onderaan de zaakpagina als tussen de meegestuurde documenten bij de generatie zelf — ze blijven dus bewaard voor toekomstige versies, niet alleen voor de generatie waarbij ze zijn geüpload.
 
 ## Rapportgeneratie
 
 Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/actions.ts` → `genereerRapportage`) een conceptrapportage:
 
-1. Optioneel vul je eerst een tekstvak in met **extra informatie/instructies** voor deze specifieke versie (bv. iets uit een telefoongesprek). Dit wordt meegestuurd in de prompt én bewaard bij de gegenereerde versie.
-2. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage. PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd; overige bestandstypen krijgen een placeholder-melding.
+1. Optioneel vul je eerst een tekstvak in met **extra informatie/instructies** voor deze specifieke versie (bv. iets uit een telefoongesprek), en/of upload je er direct één of meerdere **extra bestanden** bij (zie "Overige documenten" hierboven).
+2. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage. PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd. Word (`.docx`) en Excel (`.xlsx`) worden serverside omgezet naar platte tekst (`src/lib/documenten/lees-inhoud.ts`, via `mammoth` resp. `exceljs`) en dan als tekst meegestuurd. Oudere binaire `.doc`/`.xls`-bestanden en overige bestandstypen krijgen een placeholder-melding.
 3. `src/lib/rapportage/genereer.ts` bouwt een prompt met die gegevens plus het structuursjabloon in `src/lib/rapportage/sjabloon.ts` (secties/opbouw afgeleid van de twee voorbeeldrapportages — geen cliëntgegevens, puur de structuur).
 4. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden.
 5. Het resultaat wordt opgeslagen als nieuwe rij in `rapportages` (status standaard `concept`) en getoond op `/zaken/[id]/rapportages/[rapportageId]`.
