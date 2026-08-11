@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/Header'
-import { wijzigRapportageStatus } from '../../actions'
+import { wijzigRapportageExtraContext, wijzigRapportageStatus } from '../../actions'
 
 export default async function RapportageDetailPage({
   params,
@@ -86,12 +86,38 @@ export default async function RapportageDetailPage({
           </div>
         </div>
 
-        {rapportage.extra_context && (
-          <div className="w-full max-w-3xl rounded-md bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="mb-1 font-medium">Extra informatie meegegeven bij deze versie:</p>
-            <p className="whitespace-pre-wrap">{rapportage.extra_context}</p>
-          </div>
-        )}
+        <div className="w-full max-w-3xl rounded-md bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="mb-2 font-medium">Extra informatie bij deze versie</p>
+          <form action={wijzigRapportageExtraContext} className="flex flex-col gap-2">
+            <input type="hidden" name="zaak_id" value={id} />
+            <input type="hidden" name="rapportage_id" value={rapportageId} />
+            <textarea
+              name="extra_context"
+              defaultValue={rapportage.extra_context ?? ''}
+              placeholder="Geen extra informatie meegegeven bij deze versie."
+              rows={3}
+              className="w-full rounded border border-amber-200 bg-white p-2 text-sm text-zinc-900 placeholder:text-zinc-400"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="rounded bg-amber-900 px-2 py-1 text-xs text-white hover:bg-amber-800"
+              >
+                Opslaan
+              </button>
+              {rapportage.extra_context && (
+                <button
+                  type="submit"
+                  name="verwijderen"
+                  value="1"
+                  className="rounded px-2 py-1 text-xs text-amber-900 underline hover:text-amber-700"
+                >
+                  Verwijderen
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
 
         <article className="prose prose-sm w-full max-w-3xl rounded-md border border-zinc-200 p-6">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{rapportage.inhoud}</ReactMarkdown>

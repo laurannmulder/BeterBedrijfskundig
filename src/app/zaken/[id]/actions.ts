@@ -153,6 +153,26 @@ export async function genereerRapportage(formData: FormData) {
   redirect(`/zaken/${zaakId}/rapportages/${nieuweRapportage.id}`)
 }
 
+export async function wijzigRapportageExtraContext(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const rapportageId = String(formData.get('rapportage_id') ?? '')
+  const verwijderen = formData.get('verwijderen') === '1'
+  const extraContext = verwijderen ? null : String(formData.get('extra_context') ?? '').trim() || null
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('rapportages')
+    .update({ extra_context: extraContext })
+    .eq('id', rapportageId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}/rapportages/${rapportageId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}/rapportages/${rapportageId}`)
+  redirect(`/zaken/${zaakId}/rapportages/${rapportageId}`)
+}
+
 export async function wijzigRapportageStatus(formData: FormData) {
   const zaakId = String(formData.get('zaak_id') ?? '')
   const rapportageId = String(formData.get('rapportage_id') ?? '')
