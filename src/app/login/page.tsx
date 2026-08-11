@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { login } from './actions'
 
 export default async function LoginPage({
@@ -36,6 +37,9 @@ export default async function LoginPage({
           Inloggen
         </button>
       </form>
+      <Link href="/wachtwoord-vergeten" className="text-sm underline">
+        Wachtwoord vergeten?
+      </Link>
     </main>
   )
 }

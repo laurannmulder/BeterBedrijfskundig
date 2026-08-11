@@ -6,7 +6,7 @@ import { updateSession } from '@/lib/supabase/middleware'
 // all under `proxy.ts` (every path 404'd at the edge with zero function
 // invocations, despite a clean build). `middleware.ts` remains fully
 // supported in Next.js 16, just deprecated in favor of `proxy.ts`.
-const PUBLIC_PATHS = ['/login', '/auth']
+const PUBLIC_PATHS = ['/login', '/auth', '/wachtwoord-vergeten']
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request)
