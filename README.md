@@ -16,6 +16,10 @@ Rapportagetool voor de bedrijfskundige die bedrijfskundige rapportages opstelt o
 - **Anthropic Claude API** (`@anthropic-ai/sdk`) — rapportgeneratie.
 - **Microsoft Graph API / Auth.js met Entra ID** — aanwezig in de codebase maar **nog niet actief gekoppeld**. Bedoeld voor later, als automatisch documenten ophalen uit SharePoint/OneDrive weer wordt opgepakt (zie `src/auth.ts`, `src/lib/microsoft-graph/`).
 
+## Vormgeving
+
+Gedeelde UI-bouwstenen staan in `src/components/ui.tsx` (`Button`/`LinkButton`, `Badge`, `Card`, `PageHeader`, plus de `inputClass`/`labelClass`/`fileInputClass`-constanten) en worden op elk scherm hergebruikt voor een consistente look: zwart-wit met zinc-tinten, zachte `zinc-50`-paginakleur met witte cards (`rounded-xl`, subtiele schaduw), Geist als lettertype, en `lucide-react` voor iconen. Native `<input type="file">`-elementen gebruiken de Tailwind `file:`-variant (`fileInputClass`) zodat de "Choose file(s)"-knop er ook echt als knop uitziet — dat was zonder deze styling onzichtbaar.
+
 ## Auth-flow
 
 1. Een bestaande gebruiker nodigt een nieuwe bedrijfskundige uit via `/admin/gebruikers` (roept `supabase.auth.admin.inviteUserByEmail` aan met de service-role key).
