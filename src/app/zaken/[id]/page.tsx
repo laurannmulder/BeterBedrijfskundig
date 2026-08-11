@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { CheckCircle2, Circle, ExternalLink, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   DOCUMENT_LABELS,
@@ -8,6 +9,7 @@ import {
   type Rechtsvorm,
 } from '@/lib/documenten/vereisten'
 import { Header } from '@/components/Header'
+import { Badge, Card, LinkButton, PageHeader, fileInputClass, inputClass, labelClass } from '@/components/ui'
 import { uploadDocument, genereerRapportage } from './actions'
 import { GenereerKnop } from './genereer-knop'
 
@@ -35,19 +37,18 @@ async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }
   }
 
   return (
-    <li className="flex items-center justify-between gap-4 border-b border-zinc-100 py-2 text-sm">
-      <span className="flex items-center gap-2">
-        {label}
-        {!isOverig && (
-          <span
-            className={`rounded px-1.5 py-0.5 text-xs ${
-              doc.verplicht ? 'bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-500'
-            }`}
-          >
-            {doc.verplicht ? 'verplicht' : 'optioneel'}
-          </span>
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {isGeupload ? (
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+        ) : (
+          <Circle className={`h-4 w-4 shrink-0 ${doc.verplicht ? 'text-red-400' : 'text-zinc-300'}`} />
         )}
-      </span>
+        <span className="truncate text-sm text-zinc-800">{label}</span>
+        {!isOverig && (
+          <Badge tone={doc.verplicht ? 'danger' : 'neutral'}>{doc.verplicht ? 'verplicht' : 'optioneel'}</Badge>
+        )}
+      </div>
 
       <div className="flex items-center gap-3">
         {isGeupload &&
@@ -57,13 +58,14 @@ async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }
               href={bekijkUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="max-w-[180px] truncate text-xs text-green-700 underline"
+              className="flex max-w-[180px] items-center gap-1 truncate text-xs text-zinc-500 hover:text-zinc-900"
               title={bestandsnaam}
             >
-              {bestandsnaam}
+              <span className="truncate">{bestandsnaam}</span>
+              <ExternalLink className="h-3 w-3 shrink-0" />
             </a>
           ) : (
-            <span className="max-w-[180px] truncate text-xs text-green-700" title={bestandsnaam}>
+            <span className="max-w-[180px] truncate text-xs text-zinc-500" title={bestandsnaam}>
               {bestandsnaam}
             </span>
           ))}
@@ -75,14 +77,17 @@ async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }
             name="file"
             accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
             required
-            className="text-xs"
+            className={fileInputClass}
           />
-          <button type="submit" className="rounded-md bg-black px-3 py-1 text-xs text-white hover:bg-neutral-800">
+          <button
+            type="submit"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50"
+          >
             {isGeupload ? 'Vervangen' : 'Uploaden'}
           </button>
         </form>
       </div>
-    </li>
+    </div>
   )
 }
 
@@ -138,90 +143,95 @@ export default async function ZaakDetailPage({
   return (
     <>
       <Header userEmail={user?.email} />
-      <main className="mx-auto flex w-full max-w-2xl flex-col items-center gap-8 p-8">
-        <div className="w-full max-w-2xl">
-          <Link href="/" className="text-sm underline">
-            ← Alle zaken
-          </Link>
-          <h1 className="mt-2 text-xl font-semibold">{zaak.naam_betrokkene}</h1>
-          <p className="text-sm text-zinc-500">
-            {zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}
-            Ongevalsdatum {zaak.ongevalsdatum}
-          </p>
-        </div>
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-8">
+        <PageHeader
+          backHref="/"
+          backLabel="Alle zaken"
+          title={zaak.naam_betrokkene}
+          subtitle={`${zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}Ongevalsdatum ${zaak.ongevalsdatum}`}
+          actions={
+            !!aantalRapportages && (
+              <LinkButton href={`/zaken/${id}/rapportages`} variant="secondary" size="sm">
+                <FileText className="h-3.5 w-3.5" />
+                Rapportages ({aantalRapportages})
+              </LinkButton>
+            )
+          }
+        />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>
+        )}
 
-        <div className="flex w-full max-w-2xl flex-col gap-3">
-          <form action={genereerRapportage} className="flex flex-col gap-2">
+        <Card className="p-6">
+          <h2 className="mb-4 text-sm font-semibold text-zinc-900">Rapport genereren</h2>
+          <form action={genereerRapportage} className="flex flex-col gap-4">
             <input type="hidden" name="zaak_id" value={id} />
-            <label className="text-sm text-zinc-700">
+            <label className={labelClass}>
               Extra informatie voor deze rapportage (optioneel)
               <textarea
                 name="extra_context"
                 rows={3}
                 placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+                className={inputClass}
               />
             </label>
-            <label className="text-sm text-zinc-700">
+            <label className={labelClass}>
               Extra documenten bij deze informatie (optioneel)
               <input
                 type="file"
                 name="extra_bestanden"
                 accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
                 multiple
-                className="mt-1 block w-full text-xs"
+                className={fileInputClass}
               />
-              <span className="mt-1 block text-xs text-zinc-400">
+              <span className="flex items-start gap-1.5 text-xs font-normal text-zinc-400">
+                <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Deze worden ook toegevoegd aan de
                 documentenlijst hieronder, bij &quot;Overige documenten&quot;.
               </span>
             </label>
-            <div className="flex items-center gap-4">
+            <div>
               <GenereerKnop />
-              {!!aantalRapportages && (
-                <Link href={`/zaken/${id}/rapportages`} className="text-sm underline">
-                  Bekijk rapportages ({aantalRapportages})
-                </Link>
-              )}
             </div>
           </form>
-        </div>
+        </Card>
 
-        <section className="w-full max-w-2xl">
-          <h2 className="mb-2 font-medium">Aangifte inkomstenbelasting (betrokkene)</h2>
-          <ul>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-zinc-900">Aangifte inkomstenbelasting (betrokkene)</h2>
+          <Card className="divide-y divide-zinc-100">
             {aangifteIbDocumenten.map((doc) => (
               <DocumentRij key={doc.id} zaakId={id} doc={doc} />
             ))}
-          </ul>
+          </Card>
         </section>
 
         {ondernemingen?.map((onderneming) => {
           const documentenOnderneming = (documenten ?? []).filter((d) => d.onderneming_id === onderneming.id)
 
           return (
-            <section key={onderneming.id} className="w-full max-w-2xl">
-              <h2 className="mb-2 font-medium">
+            <section key={onderneming.id} className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-zinc-900">
                 {onderneming.naam}{' '}
-                <span className="text-sm font-normal text-zinc-500">
+                <span className="font-normal text-zinc-400">
                   ({RECHTSVORM_LABELS[onderneming.rechtsvorm as Rechtsvorm]})
                 </span>
               </h2>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-5">
                 {ONDERNEMING_DOCUMENT_VOLGORDE.map((type) => {
                   const documentenType = documentenOnderneming.filter((d) => d.type === type)
                   if (documentenType.length === 0) return null
 
                   return (
-                    <div key={type}>
-                      <h3 className="mb-1 text-sm font-medium text-zinc-600">{DOCUMENT_LABELS[type]}</h3>
-                      <ul>
+                    <div key={type} className="flex flex-col gap-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        {DOCUMENT_LABELS[type]}
+                      </h3>
+                      <Card className="divide-y divide-zinc-100">
                         {documentenType.map((doc) => (
                           <DocumentRij key={doc.id} zaakId={id} doc={doc} />
                         ))}
-                      </ul>
+                      </Card>
                     </div>
                   )
                 })}
@@ -231,16 +241,18 @@ export default async function ZaakDetailPage({
         })}
 
         {overigeDocumenten.length > 0 && (
-          <section className="w-full max-w-2xl">
-            <h2 className="mb-2 font-medium">Overige documenten</h2>
-            <p className="mb-2 text-xs text-zinc-500">
-              Bestanden aangeleverd via &quot;extra informatie&quot; bij het genereren van een rapportage.
-            </p>
-            <ul>
+          <section className="flex flex-col gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900">Overige documenten</h2>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Bestanden aangeleverd via &quot;extra informatie&quot; bij het genereren van een rapportage.
+              </p>
+            </div>
+            <Card className="divide-y divide-zinc-100">
               {overigeDocumenten.map((doc) => (
                 <DocumentRij key={doc.id} zaakId={id} doc={doc} />
               ))}
-            </ul>
+            </Card>
           </section>
         )}
       </main>

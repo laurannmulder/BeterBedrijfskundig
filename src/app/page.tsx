@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { FileText, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/Header'
+import { Badge, Card, LinkButton } from '@/components/ui'
 
 function relatieveTijd(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime()
@@ -56,77 +58,75 @@ export default async function Home() {
     <>
       <Header userEmail={user?.email} />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Zaken</h1>
-          <Link
-            href="/zaken/nieuw"
-            className="rounded-md bg-black px-4 py-2 text-sm text-white hover:bg-neutral-800"
-          >
-            + Nieuwe zaak
-          </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Zaken</h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              <strong className="font-semibold text-zinc-900">{zaken?.length ?? 0}</strong> zaken ·{' '}
+              <strong className="font-semibold text-zinc-900">{aantalMetOntbrekendeDocumenten}</strong> met
+              ontbrekende documenten
+            </p>
+          </div>
+          <LinkButton href="/zaken/nieuw">
+            <Plus className="h-4 w-4" />
+            Nieuwe zaak
+          </LinkButton>
         </div>
 
-        <div className="flex gap-6 text-sm text-zinc-600">
-          <span>
-            <strong className="text-black">{zaken?.length ?? 0}</strong> zaken
-          </span>
-          <span>
-            <strong className="text-black">{aantalMetOntbrekendeDocumenten}</strong> met ontbrekende
-            documenten
-          </span>
-        </div>
-
-        <ul className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {zaken?.map((zaak) => {
             const voortgang = voortgangPerZaak.get(zaak.id)
             const rapportage = laatsteRapportagePerZaak.get(zaak.id)
+            const compleet = voortgang && voortgang.geupload >= voortgang.verplicht
+            const percentage = voortgang ? Math.round((voortgang.geupload / voortgang.verplicht) * 100) : 0
 
             return (
-              <li key={zaak.id}>
-                <Link
-                  href={`/zaken/${zaak.id}`}
-                  className="flex items-center justify-between gap-4 rounded-md border border-zinc-200 px-4 py-3 hover:bg-zinc-50"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{zaak.naam_betrokkene}</span>
+              <Link key={zaak.id} href={`/zaken/${zaak.id}`}>
+                <Card className="flex flex-col gap-4 px-5 py-4 transition-shadow hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="font-medium text-zinc-900">{zaak.naam_betrokkene}</span>
                     <span className="text-xs text-zinc-500">
                       {zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}
                       Ongeval {zaak.ongevalsdatum}
                     </span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-4">
+
+                  <div className="flex flex-wrap items-center gap-4 sm:shrink-0 sm:gap-6">
                     {voortgang && (
-                      <span
-                        className={`text-xs ${
-                          voortgang.geupload < voortgang.verplicht ? 'text-amber-700' : 'text-green-700'
-                        }`}
-                      >
-                        {voortgang.geupload}/{voortgang.verplicht} documenten
-                      </span>
+                      <div className="flex w-32 flex-col gap-1">
+                        <span className={`text-xs font-medium ${compleet ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          {voortgang.geupload}/{voortgang.verplicht} documenten
+                        </span>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+                          <div
+                            className={`h-full rounded-full ${compleet ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
                     )}
                     {rapportage ? (
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-xs ${
-                          rapportage.status === 'definitief'
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-zinc-100 text-zinc-500'
-                        }`}
-                      >
+                      <Badge tone={rapportage.status === 'definitief' ? 'success' : 'neutral'}>
                         {rapportage.status}
-                      </span>
+                      </Badge>
                     ) : (
-                      <span className="text-xs text-zinc-400">geen rapportage</span>
+                      <span className="flex items-center gap-1 text-xs text-zinc-400">
+                        <FileText className="h-3.5 w-3.5" />
+                        geen rapportage
+                      </span>
                     )}
-                    <span className="w-24 text-right text-xs text-zinc-400">
+                    <span className="w-20 text-right text-xs text-zinc-400">
                       {relatieveTijd(zaak.laatst_bewerkt)}
                     </span>
                   </div>
-                </Link>
-              </li>
+                </Card>
+              </Link>
             )
           })}
-          {zaken?.length === 0 && <p className="text-sm text-zinc-500">Nog geen zaken.</p>}
-        </ul>
+          {zaken?.length === 0 && (
+            <Card className="p-8 text-center text-sm text-zinc-500">Nog geen zaken.</Card>
+          )}
+        </div>
       </main>
     </>
   )

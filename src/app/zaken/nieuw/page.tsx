@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Header } from '@/components/Header'
+import { PageHeader } from '@/components/ui'
 import { ZaakForm } from './zaak-form'
 
 export default async function NieuweZaakPage({
@@ -16,8 +17,8 @@ export default async function NieuweZaakPage({
   return (
     <>
       <Header userEmail={user?.email} />
-      <main className="flex flex-col items-center gap-6 p-8">
-        <h1 className="text-xl font-semibold">Nieuwe zaak</h1>
+      <main className="mx-auto flex w-full max-w-xl flex-col gap-6 p-8">
+        <PageHeader title="Nieuwe zaak" backHref="/" backLabel="Alle zaken" />
         <ZaakForm error={error} />
       </main>
     </>
