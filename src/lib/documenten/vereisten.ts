@@ -10,6 +10,7 @@ export type DocumentType =
   | 'arbeidsovereenkomst'
   | 'vof_contract'
   | 'vennootschapscontract'
+  | 'overig'
 
 export const RECHTSVORM_LABELS: Record<Rechtsvorm, string> = {
   eenmanszaak: 'Eenmanszaak',
@@ -28,7 +29,20 @@ export const DOCUMENT_LABELS: Record<DocumentType, string> = {
   arbeidsovereenkomst: 'Arbeidsovereenkomsten werknemers',
   vof_contract: 'VOF-contract',
   vennootschapscontract: 'Vennootschapscontract',
+  overig: 'Overig document',
 }
+
+// Volgorde waarin documentcategorieën per onderneming getoond worden.
+export const ONDERNEMING_DOCUMENT_VOLGORDE: DocumentType[] = [
+  'jaarcijfers',
+  'aangifte_ob',
+  'leasecontract',
+  'huurcontract',
+  'bankafschriften',
+  'arbeidsovereenkomst',
+  'vof_contract',
+  'vennootschapscontract',
+]
 
 export interface OndernemingInput {
   id: string

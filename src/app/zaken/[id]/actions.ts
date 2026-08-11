@@ -4,7 +4,11 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DOCUMENT_LABELS, type DocumentType } from '@/lib/documenten/vereisten'
+import { leesDocxTekst, leesXlsxTekst } from '@/lib/documenten/lees-inhoud'
 import { genereerRapportageTekst, type DocumentFeit, type OndernemingFeit } from '@/lib/rapportage/genereer'
+
+const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const XLSX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export async function uploadDocument(formData: FormData) {
   const documentId = String(formData.get('document_id') ?? '')
@@ -67,6 +71,34 @@ export async function genereerRapportage(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const extraBestanden = formData.getAll('extra_bestanden').filter((f): f is File => f instanceof File && f.size > 0)
+
+  for (const bestand of extraBestanden) {
+    const documentId = crypto.randomUUID()
+    const path = `${zaakId}/${documentId}/${bestand.name}`
+
+    const { error: uploadError } = await supabase.storage.from('documenten').upload(path, bestand)
+    if (uploadError) {
+      redirect(`/zaken/${zaakId}?error=${encodeURIComponent(uploadError.message)}`)
+    }
+
+    const { error: insertError } = await supabase.from('documenten').insert({
+      id: documentId,
+      zaak_id: zaakId,
+      onderneming_id: null,
+      type: 'overig',
+      jaar: null,
+      verplicht: false,
+      status: 'geupload',
+      storage_path: path,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by: user!.id,
+    })
+    if (insertError) {
+      redirect(`/zaken/${zaakId}?error=${encodeURIComponent(insertError.message)}`)
+    }
+  }
+
   const { data: zaak } = await supabase.from('zaken').select('*').eq('id', zaakId).single()
   const { data: ondernemingenRows } = await supabase
     .from('ondernemingen')
@@ -92,7 +124,10 @@ export async function genereerRapportage(formData: FormData) {
   const documenten: DocumentFeit[] = []
   for (const doc of geuploadeDocumenten) {
     const basis = {
-      label: DOCUMENT_LABELS[doc.type as DocumentType],
+      label:
+        doc.type === 'overig'
+          ? (doc.storage_path?.split('/').pop() ?? DOCUMENT_LABELS.overig)
+          : DOCUMENT_LABELS[doc.type as DocumentType],
       jaar: doc.jaar,
       onderneming: doc.onderneming_id ? (ondernemingNaamPerId.get(doc.onderneming_id) ?? null) : null,
     }
@@ -112,6 +147,20 @@ export async function genereerRapportage(formData: FormData) {
       documenten.push({ ...basis, kind: 'afbeelding', base64: buffer.toString('base64'), mediaType })
     } else if (mediaType === 'text/plain' || mediaType === '') {
       documenten.push({ ...basis, kind: 'tekst', tekst: await bestand.text() })
+    } else if (mediaType === DOCX_MEDIA_TYPE) {
+      try {
+        const buffer = Buffer.from(await bestand.arrayBuffer())
+        documenten.push({ ...basis, kind: 'tekst', tekst: await leesDocxTekst(buffer) })
+      } catch {
+        documenten.push({ ...basis, kind: 'onleesbaar' })
+      }
+    } else if (mediaType === XLSX_MEDIA_TYPE) {
+      try {
+        const buffer = Buffer.from(await bestand.arrayBuffer())
+        documenten.push({ ...basis, kind: 'tekst', tekst: await leesXlsxTekst(buffer) })
+      } catch {
+        documenten.push({ ...basis, kind: 'onleesbaar' })
+      }
     } else {
       documenten.push({ ...basis, kind: 'onleesbaar' })
     }

@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { DOCUMENT_LABELS, RECHTSVORM_LABELS, type DocumentType, type Rechtsvorm } from '@/lib/documenten/vereisten'
+import {
+  DOCUMENT_LABELS,
+  ONDERNEMING_DOCUMENT_VOLGORDE,
+  RECHTSVORM_LABELS,
+  type DocumentType,
+  type Rechtsvorm,
+} from '@/lib/documenten/vereisten'
 import { Header } from '@/components/Header'
 import { uploadDocument, genereerRapportage } from './actions'
 import { GenereerKnop } from './genereer-knop'
@@ -16,9 +22,10 @@ interface DocumentRow {
 }
 
 async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }) {
-  const label = DOCUMENT_LABELS[doc.type] + (doc.jaar ? ` ${doc.jaar}` : '')
+  const isOverig = doc.type === 'overig'
   const isGeupload = doc.status !== 'ontbreekt'
   const bestandsnaam = doc.storage_path?.split('/').pop() ?? null
+  const label = isOverig ? DOCUMENT_LABELS.overig : DOCUMENT_LABELS[doc.type] + (doc.jaar ? ` ${doc.jaar}` : '')
 
   let bekijkUrl: string | null = null
   if (isGeupload && doc.storage_path) {
@@ -31,13 +38,15 @@ async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }
     <li className="flex items-center justify-between gap-4 border-b border-zinc-100 py-2 text-sm">
       <span className="flex items-center gap-2">
         {label}
-        <span
-          className={`rounded px-1.5 py-0.5 text-xs ${
-            doc.verplicht ? 'bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-500'
-          }`}
-        >
-          {doc.verplicht ? 'verplicht' : 'optioneel'}
-        </span>
+        {!isOverig && (
+          <span
+            className={`rounded px-1.5 py-0.5 text-xs ${
+              doc.verplicht ? 'bg-red-50 text-red-700' : 'bg-zinc-100 text-zinc-500'
+            }`}
+          >
+            {doc.verplicht ? 'verplicht' : 'optioneel'}
+          </span>
+        )}
       </span>
 
       <div className="flex items-center gap-3">
@@ -64,7 +73,7 @@ async function DocumentRij({ zaakId, doc }: { zaakId: string; doc: DocumentRow }
           <input
             type="file"
             name="file"
-            accept=".pdf,.jpg,.jpeg,.png,.txt"
+            accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
             required
             className="text-xs"
           />
@@ -123,7 +132,8 @@ export default async function ZaakDetailPage({
     )
   }
 
-  const zaakDocumenten = (documenten ?? []).filter((d) => d.onderneming_id === null)
+  const aangifteIbDocumenten = (documenten ?? []).filter((d) => d.type === 'aangifte_ib')
+  const overigeDocumenten = (documenten ?? []).filter((d) => d.type === 'overig')
 
   return (
     <>
@@ -154,6 +164,20 @@ export default async function ZaakDetailPage({
                 className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
               />
             </label>
+            <label className="text-sm text-zinc-700">
+              Extra documenten bij deze informatie (optioneel)
+              <input
+                type="file"
+                name="extra_bestanden"
+                accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
+                multiple
+                className="mt-1 block w-full text-xs"
+              />
+              <span className="mt-1 block text-xs text-zinc-400">
+                PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Deze worden ook toegevoegd aan de
+                documentenlijst hieronder, bij &quot;Overige documenten&quot;.
+              </span>
+            </label>
             <div className="flex items-center gap-4">
               <GenereerKnop />
               {!!aantalRapportages && (
@@ -168,29 +192,57 @@ export default async function ZaakDetailPage({
         <section className="w-full max-w-2xl">
           <h2 className="mb-2 font-medium">Aangifte inkomstenbelasting (betrokkene)</h2>
           <ul>
-            {zaakDocumenten.map((doc) => (
+            {aangifteIbDocumenten.map((doc) => (
               <DocumentRij key={doc.id} zaakId={id} doc={doc} />
             ))}
           </ul>
         </section>
 
-        {ondernemingen?.map((onderneming) => (
-          <section key={onderneming.id} className="w-full max-w-2xl">
-            <h2 className="mb-1 font-medium">
-              {onderneming.naam}{' '}
-              <span className="text-sm font-normal text-zinc-500">
-                ({RECHTSVORM_LABELS[onderneming.rechtsvorm as Rechtsvorm]})
-              </span>
-            </h2>
+        {ondernemingen?.map((onderneming) => {
+          const documentenOnderneming = (documenten ?? []).filter((d) => d.onderneming_id === onderneming.id)
+
+          return (
+            <section key={onderneming.id} className="w-full max-w-2xl">
+              <h2 className="mb-2 font-medium">
+                {onderneming.naam}{' '}
+                <span className="text-sm font-normal text-zinc-500">
+                  ({RECHTSVORM_LABELS[onderneming.rechtsvorm as Rechtsvorm]})
+                </span>
+              </h2>
+              <div className="flex flex-col gap-4">
+                {ONDERNEMING_DOCUMENT_VOLGORDE.map((type) => {
+                  const documentenType = documentenOnderneming.filter((d) => d.type === type)
+                  if (documentenType.length === 0) return null
+
+                  return (
+                    <div key={type}>
+                      <h3 className="mb-1 text-sm font-medium text-zinc-600">{DOCUMENT_LABELS[type]}</h3>
+                      <ul>
+                        {documentenType.map((doc) => (
+                          <DocumentRij key={doc.id} zaakId={id} doc={doc} />
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )
+        })}
+
+        {overigeDocumenten.length > 0 && (
+          <section className="w-full max-w-2xl">
+            <h2 className="mb-2 font-medium">Overige documenten</h2>
+            <p className="mb-2 text-xs text-zinc-500">
+              Bestanden aangeleverd via &quot;extra informatie&quot; bij het genereren van een rapportage.
+            </p>
             <ul>
-              {(documenten ?? [])
-                .filter((d) => d.onderneming_id === onderneming.id)
-                .map((doc) => (
-                  <DocumentRij key={doc.id} zaakId={id} doc={doc} />
-                ))}
+              {overigeDocumenten.map((doc) => (
+                <DocumentRij key={doc.id} zaakId={id} doc={doc} />
+              ))}
             </ul>
           </section>
-        ))}
+        )}
       </main>
     </>
   )
