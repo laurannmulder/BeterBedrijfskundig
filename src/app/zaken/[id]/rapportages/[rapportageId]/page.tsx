@@ -60,21 +60,29 @@ export default async function RapportageDetailPage({
                 )
               </span>
             </h1>
-            <form action={wijzigRapportageStatus}>
-              <input type="hidden" name="zaak_id" value={id} />
-              <input type="hidden" name="rapportage_id" value={rapportageId} />
-              <input type="hidden" name="status" value={volgendeStatus} />
-              <button
-                type="submit"
-                className={`rounded px-2 py-1 text-xs ${
-                  rapportage.status === 'definitief'
-                    ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-                }`}
+            <div className="flex items-center gap-2">
+              <a
+                href={`/zaken/${id}/rapportages/${rapportageId}/docx`}
+                className="rounded bg-zinc-900 px-2 py-1 text-xs text-white hover:bg-zinc-700"
               >
-                {rapportage.status} — markeer als {volgendeStatus}
-              </button>
-            </form>
+                Download als Word
+              </a>
+              <form action={wijzigRapportageStatus}>
+                <input type="hidden" name="zaak_id" value={id} />
+                <input type="hidden" name="rapportage_id" value={rapportageId} />
+                <input type="hidden" name="status" value={volgendeStatus} />
+                <button
+                  type="submit"
+                  className={`rounded px-2 py-1 text-xs ${
+                    rapportage.status === 'definitief'
+                      ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                      : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  }`}
+                >
+                  {rapportage.status} — markeer als {volgendeStatus}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
 
