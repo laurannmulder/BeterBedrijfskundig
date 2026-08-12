@@ -40,13 +40,15 @@ Een gedeelde `Header` (`src/components/Header.tsx` — logo, navigatie, ingelogd
 
 ## Zaken en documentchecklist
 
-Bij het aanmaken van een zaak (`/zaken/nieuw`) vul je de betrokkene, ongevalsdatum en één of meer ondernemingen in (naam, rechtsvorm, oprichtingsdatum, KvK-nummer). Op basis daarvan berekent `src/lib/documenten/vereisten.ts` welke documenten verplicht/optioneel zijn en voor welke jaren, en worden die als rijen in `documenten` gezet:
+Bij het aanmaken van een zaak (`/zaken/nieuw`) zijn alleen **naam betrokkene** en **dossiernummer** verplicht. Ongevalsdatum en de ondernemingsgegevens (naam, rechtsvorm, oprichtingsdatum, KvK-nummer — zelfs de hele onderneming) mogen worden weggelaten; die informatie kan ook later uit de aangeleverde documenten blijken. `src/lib/documenten/vereisten.ts` berekent op basis van wat wél bekend is welke documenten verplicht/optioneel zijn en voor welke jaren, en zet die als rijen in `documenten`:
 
 - **Aangifte inkomstenbelasting** — verplicht, op zaakniveau (hoort bij de betrokkene, niet bij één onderneming), 5 jaar vóór het ongevalsjaar t/m nu.
 - **Jaarcijfers** — verplicht, per onderneming, zelfde jarenreeks (of vanaf oprichting als de onderneming korter bestaat).
 - **Aangifte omzetbelasting, leasecontract, huurcontract, bankafschriften, arbeidsovereenkomsten** — optioneel, per onderneming, zelfde jaren als de jaarcijfers.
 - **VOF-contract** — verplicht als rechtsvorm VOF is.
 - **Vennootschapscontract** — verplicht als rechtsvorm BV is.
+
+Zonder ongevalsdatum worden er geen jaargebonden documenten bepaald (ook niet voor ondernemingen die wél volledig zijn ingevuld); ontbreekt bij een specifieke onderneming alleen de oprichtingsdatum, dan mist alleen die onderneming haar jaargebonden categorieën — een VOF-/vennootschapscontract-vereiste wordt nog wel bepaald zodra de rechtsvorm bekend is. **Er is nog geen manier om een zaak of onderneming na aanmaken te bewerken** — als deze velden bij aanmaken worden weggelaten, is er momenteel geen UI om ze later alsnog in te vullen en de checklist opnieuw te laten berekenen.
 
 Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload", met de bestandsnaam als link (signed URL, 10 min geldig) ernaast. Een document kan worden vervangen door gewoon opnieuw te uploaden ("Vervangen") — bij een andere bestandsnaam wordt het oude bestand automatisch opgeruimd. De lijst is per onderneming onderverdeeld in subcategorieën per documenttype (Jaarcijfers, Aangifte omzetbelasting, etc. — volgorde in `ONDERNEMING_DOCUMENT_VOLGORDE`), in plaats van één doorlopende lijst gesorteerd op jaar.
 
@@ -99,8 +101,8 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 - `/admin/gebruikers` heeft nog geen rolcheck — elke ingelogde gebruiker kan uitnodigen. Prima voor een klein team, maar te herzien zodra de groep groeit.
 - Holdingstructuren (een BV die aandeelhouder is van een andere BV, zoals in de BV-voorbeeldrapportage) zijn nog niet in de UI gemodelleerd — `ondernemingen.moederonderneming_id` staat er alvast voor klaar.
 - Financiële cijfers uit de documenten worden niet gestructureerd opgeslagen (geen bedragen-per-jaar/post in de database) — Claude leest ze rechtstreeks uit de aangeleverde documenten bij elke rapportgeneratie, wat werkt maar herbruikbare/doorzoekbare cijfers in de weg staat.
-- Alleen PDF, JPG/PNG en platte tekst worden ondersteund; .docx/.xlsx-uploads krijgen een "onleesbaar"-placeholder in de prompt.
 - Geen limiet/waarschuwing bij zeer grote of zeer veel documenten (Claude API-limiet: 32 MB per request, 600 pagina's).
+- **Geen manier om een zaak of onderneming te bewerken na aanmaken** — sinds ongevalsdatum/rechtsvorm/oprichtingsdatum optioneel zijn geworden bij het aanmaken (zie "Zaken en documentchecklist"), is dit een reëel gat: als die velden worden weggelaten, is er geen UI om ze later alsnog in te vullen en de documentchecklist opnieuw te laten berekenen.
 - AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
 - Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
 - Geen vergelijking tussen versies (diff/wat is er veranderd) — je kunt alle versies los bekijken, maar niet naast elkaar.
