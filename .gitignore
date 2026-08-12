@@ -37,6 +37,13 @@ yarn-error.log*
 # vercel
 .vercel
 
+# echte cliëntdocumenten die soms tijdelijk in de projectmap belanden (bv. als
+# voorbeeld voor het rapportagesjabloon, of testmateriaal) — mogen nooit
+# gecommit worden
+*.docx
+*.pdf
+*.eml
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
