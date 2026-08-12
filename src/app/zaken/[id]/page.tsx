@@ -225,39 +225,6 @@ export default async function ZaakDetailPage({
 
           {error && <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>}
 
-          <Card className="p-6">
-            <h2 className="mb-4 text-sm font-semibold text-zinc-900">Rapport genereren</h2>
-            <form action={genereerRapportage} className="flex flex-col gap-4">
-              <input type="hidden" name="zaak_id" value={id} />
-              <label className={labelClass}>
-                Extra informatie voor deze rapportage (optioneel)
-                <textarea
-                  name="extra_context"
-                  rows={3}
-                  placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
-                  className={inputClass}
-                />
-              </label>
-              <label className={labelClass}>
-                Extra documenten bij deze informatie (optioneel)
-                <input
-                  type="file"
-                  name="extra_bestanden"
-                  accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
-                  multiple
-                  className={fileInputClass}
-                />
-                <span className="flex items-start gap-1.5 text-xs font-normal text-zinc-400">
-                  <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  Worden net als bij &quot;Documenten uploaden&quot; automatisch herkend en toegevoegd aan de documentenlijst.
-                </span>
-              </label>
-              <div>
-                <GenereerKnop />
-              </div>
-            </form>
-          </Card>
-
           {zaakDocumenten.length > 0 && (
             <section className="flex flex-col gap-5">
               <h2 className="text-sm font-semibold text-zinc-900">Zaak</h2>
@@ -309,34 +276,69 @@ export default async function ZaakDetailPage({
           )}
         </div>
 
-        <Card className="flex w-full shrink-0 flex-col gap-4 p-5 lg:sticky lg:top-20 lg:w-72">
-          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-            <UploadCloud className="h-3.5 w-3.5" />
-            Documenten uploaden
-          </h2>
-          <form action={uploadDocumenten} className="flex flex-col gap-3">
-            <input type="hidden" name="zaak_id" value={id} />
-            <input
-              type="file"
-              name="bestanden"
-              accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
-              multiple
-              className={fileInputClass}
-            />
-            <p className="text-xs text-zinc-400">
-              PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Elk bestand wordt automatisch
-              herkend (bijv. jaarcijfers, aangifte IB, KvK-uittreksel) — één bestand kan aan meerdere categorieën
-              voldoen. Ontbrekende zaak-/ondernemingsgegevens (KvK-nummer, oprichtingsdatum, ongevalsdatum) worden
-              zo mogelijk automatisch aangevuld. Dit kan bij grote bestanden een tijdje duren.
-            </p>
-            <button
-              type="submit"
-              className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
-            >
-              Uploaden
-            </button>
-          </form>
-        </Card>
+        <div className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-20 lg:w-72">
+          <Card className="flex flex-col gap-4 p-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Rapport genereren</h2>
+            <form action={genereerRapportage} className="flex flex-col gap-4">
+              <input type="hidden" name="zaak_id" value={id} />
+              <label className={labelClass}>
+                Extra informatie voor deze rapportage (optioneel)
+                <textarea
+                  name="extra_context"
+                  rows={3}
+                  placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
+                  className={inputClass}
+                />
+              </label>
+              <label className={labelClass}>
+                Extra documenten bij deze informatie (optioneel)
+                <input
+                  type="file"
+                  name="extra_bestanden"
+                  accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
+                  multiple
+                  className={fileInputClass}
+                />
+                <span className="flex items-start gap-1.5 text-xs font-normal text-zinc-400">
+                  <Paperclip className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Worden net als bij &quot;Documenten uploaden&quot; automatisch herkend en toegevoegd aan de documentenlijst.
+                </span>
+              </label>
+              <div>
+                <GenereerKnop />
+              </div>
+            </form>
+          </Card>
+
+          <Card className="flex flex-col gap-4 p-5">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              <UploadCloud className="h-3.5 w-3.5" />
+              Documenten uploaden
+            </h2>
+            <form action={uploadDocumenten} className="flex flex-col gap-3">
+              <input type="hidden" name="zaak_id" value={id} />
+              <input
+                type="file"
+                name="bestanden"
+                accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
+                multiple
+                className={fileInputClass}
+              />
+              <p className="text-xs text-zinc-400">
+                PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Elk bestand wordt automatisch
+                herkend (bijv. jaarcijfers, aangifte IB, KvK-uittreksel) — één bestand kan aan meerdere categorieën
+                voldoen. Ontbrekende zaak-/ondernemingsgegevens (KvK-nummer, oprichtingsdatum, ongevalsdatum) worden
+                zo mogelijk automatisch aangevuld. Dit kan bij grote bestanden een tijdje duren.
+              </p>
+              <button
+                type="submit"
+                className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
+              >
+                Uploaden
+              </button>
+            </form>
+          </Card>
+        </div>
       </main>
     </>
   )
