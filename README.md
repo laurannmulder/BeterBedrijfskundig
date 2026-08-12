@@ -4,8 +4,8 @@ Rapportagetool voor de bedrijfskundige die bedrijfskundige rapportages opstelt o
 
 ## Wat de app doet
 
-- Bij het starten van een **zaak** worden vier vragen gesteld (oprichtingsdatum onderneming, rechtsvorm, ongevalsdatum, aantal BV's van het slachtoffer) waarmee wordt bepaald welke documenten verplicht/optioneel zijn.
-- Documenten worden voorlopig **handmatig geüpload** (naar Supabase Storage) — geen automatische koppeling met de Microsoft cloudomgeving.
+- Bij het starten van een **zaak** (`/zaken/nieuw`) vul je alleen naam betrokkene en dossiernummer in — verder niets.
+- De rest van de zaakgegevens (ongevalsdatum, onderneming, oprichtingsdatum, rechtsvorm, KvK-nummer) komt binnen door simpelweg **documenten te uploaden** (naar Supabase Storage): Claude leest elk bestand, herkent welke categorie(ën) erin staan (een enkel bestand kan er meerdere bevatten, ook meerdere jaren tegelijk) en vult ontbrekende zaak-/ondernemingsgegevens automatisch aan. Zie "Documentclassificatie" hieronder.
 - Toegang tot de app is met e-mail/wachtwoord (Supabase Auth). Nieuwe bedrijfskundigen worden uitgenodigd via een e-mail met een link waarmee ze zelf een wachtwoord instellen.
 - De inhoud van de documenten (aangiftes, jaarcijfers, contracten) wordt gebruikt als input, samen met historische rapportages als stijl-/structuurreferentie, om met Claude een concept bedrijfskundige rapportage te genereren.
 
@@ -34,39 +34,39 @@ Gedeelde UI-bouwstenen staan in `src/components/ui.tsx` (`Button`/`LinkButton`, 
 
 ## Dashboard
 
-Na het inloggen (`/`, `src/app/page.tsx`) zie je direct een overzicht van alle zaken, gesorteerd op **laatst bewerkt**. Dat veld (`zaken.laatst_bewerkt`) wordt automatisch bijgewerkt door database-triggers zodra er iets verandert aan een gekoppelde onderneming, document of rapportage (zie `supabase/migrations/0004_zaken_laatst_bewerkt.sql`) — de app-code hoeft dit zelf niet bij te houden. Per zaak zie je: documentvoortgang (verplichte documenten geüpload / totaal), de status van de laatste rapportage (of "geen rapportage"), en hoelang geleden de zaak voor het laatst is bewerkt. Bovenaan staat een korte samenvatting (aantal zaken, aantal met ontbrekende verplichte documenten) en een knop om een nieuwe zaak te starten.
+Na het inloggen (`/`, `src/app/page.tsx`) zie je direct een overzicht van alle zaken, gesorteerd op **laatst bewerkt**. Dat veld (`zaken.laatst_bewerkt`) wordt automatisch bijgewerkt door database-triggers zodra er iets verandert aan een gekoppelde onderneming, document of rapportage (zie `supabase/migrations/0004_zaken_laatst_bewerkt.sql`) — de app-code hoeft dit zelf niet bij te houden. Per zaak zie je: het aantal herkende documenten, de status van de laatste rapportage (of "geen rapportage"), en hoelang geleden de zaak voor het laatst is bewerkt. Bovenaan staat een korte samenvatting (aantal zaken, aantal zonder documenten) en een knop om een nieuwe zaak te starten.
 
 Een gedeelde `Header` (`src/components/Header.tsx` — logo, navigatie, ingelogde gebruiker, uitloggen) staat op alle ingelogde pagina's.
 
-## Zaken en documentchecklist
+## Zaken en documentclassificatie
 
-Bij het aanmaken van een zaak (`/zaken/nieuw`) zijn alleen **naam betrokkene** en **dossiernummer** verplicht. Ongevalsdatum en de ondernemingsgegevens (naam, rechtsvorm, oprichtingsdatum, KvK-nummer — zelfs de hele onderneming) mogen worden weggelaten; die informatie kan ook later uit de aangeleverde documenten blijken. `src/lib/documenten/vereisten.ts` berekent op basis van wat wél bekend is welke documenten verplicht/optioneel zijn en voor welke jaren, en zet die als rijen in `documenten`:
+Bij het aanmaken van een zaak (`/zaken/nieuw`) zijn alleen **naam betrokkene** en **dossiernummer** verplicht — al het overige (ongevalsdatum, onderneming(en), rechtsvorm, oprichtingsdatum, KvK-nummer) mag worden weggelaten en komt binnen via geüploade documenten in plaats van een handmatig formulier.
 
-- **Aangifte inkomstenbelasting** — verplicht, op zaakniveau (hoort bij de betrokkene, niet bij één onderneming), 5 jaar vóór het ongevalsjaar t/m nu.
-- **Jaarcijfers** — verplicht, per onderneming, zelfde jarenreeks (of vanaf oprichting als de onderneming korter bestaat).
-- **Aangifte omzetbelasting, leasecontract, huurcontract, bankafschriften, arbeidsovereenkomsten** — optioneel, per onderneming, zelfde jaren als de jaarcijfers.
-- **VOF-contract** — verplicht als rechtsvorm VOF is.
-- **Vennootschapscontract** — verplicht als rechtsvorm BV is.
+Op de zaakpagina (`/zaken/[id]`) staat één algemeen upload-blok ("Documenten uploaden", multi-select) — geen los knopje per checklist-item meer, want er is geen vooraf berekende checklist meer. Elk geüpload bestand doorloopt `src/lib/documenten/verwerk-upload.ts`:
 
-Zonder ongevalsdatum worden er geen jaargebonden documenten bepaald (ook niet voor ondernemingen die wél volledig zijn ingevuld); ontbreekt bij een specifieke onderneming alleen de oprichtingsdatum, dan mist alleen die onderneming haar jaargebonden categorieën — een VOF-/vennootschapscontract-vereiste wordt nog wel bepaald zodra de rechtsvorm bekend is. **Er is nog geen manier om een zaak of onderneming na aanmaken te bewerken** — als deze velden bij aanmaken worden weggelaten, is er momenteel geen UI om ze later alsnog in te vullen en de checklist opnieuw te laten berekenen.
+1. **Upload** naar Supabase Storage (bucket `documenten`).
+2. **Classificatie** (`src/lib/documenten/classificeer.ts`): één Claude-aanroep (`claude-opus-5`, tool-use met `tool_choice: 'auto'` — een geforceerde tool-keuze combineert niet betrouwbaar met extended thinking, dat op dit model standaard aanstaat) bepaalt welke categorie(ën) en welk(e) jaar/jaren het bestand bevat. Eén bestand kan aan **meerdere categorieën tegelijk voldoen** (bv. jaarcijfers van meerdere jaren, of jaarcijfers én een aangifte IB in hetzelfde bestand) — voor elke herkende combinatie komt een aparte rij in `documenten`, allemaal wijzend naar hetzelfde geüploade bestand. Wordt niets herkend, dan krijgt het bestand het type `overig` (zichtbaar in de "Overige documenten"-sectie) zodat het nooit stilzwijgend verdwijnt.
+3. **Metadata-aanvulling**: dezelfde aanroep extraheert ook `ondernemingNaam`, `rechtsvorm`, `oprichtingsdatum`, `kvkNummer` en `ongevalsdatum` als het document die vermeldt (alleen wat er echt in staat, nooit gegokt). Ongevalsdatum wordt op de zaak ingevuld als die nog leeg is; een onderneming wordt gematcht op naam (case-insensitive) — bij een match worden alleen de nog lege velden aangevuld, bij geen match wordt een nieuwe onderneming aangemaakt. Bestaande, al ingevulde waarden worden nooit overschreven.
 
-Op de zaakpagina (`/zaken/[id]`) upload je per document een bestand naar Supabase Storage (bucket `documenten`); de status springt dan van "ontbreekt" naar "geüpload", met de bestandsnaam als link (signed URL, 10 min geldig) ernaast. Een document kan worden vervangen door gewoon opnieuw te uploaden ("Vervangen") — bij een andere bestandsnaam wordt het oude bestand automatisch opgeruimd. De lijst is per onderneming onderverdeeld in subcategorieën per documenttype (Jaarcijfers, Aangifte omzetbelasting, etc. — volgorde in `ONDERNEMING_DOCUMENT_VOLGORDE`), in plaats van één doorlopende lijst gesorteerd op jaar.
+Categorieën: `aangifte_ib` en `opdrachtbrief` horen bij de zaak/betrokkene; `jaarcijfers`, `aangifte_ob`, `leasecontract`, `huurcontract`, `bankafschriften`, `arbeidsovereenkomst`, `vof_contract`, `vennootschapscontract` en `kvk_uittreksel` horen bij een specifieke onderneming (volgorde in `ONDERNEMING_DOCUMENT_VOLGORDE`). **Geen enkele categorie is nog verplicht** — een categorie-sectie wordt alleen getoond zodra er daadwerkelijk een document in herkend is, in plaats van als lege placeholder.
 
-Deze regels zijn gebaseerd op twee voorbeeldrapportages (eenmanszaak en BV) die zijn doorgenomen voor de opzet — zie ook de opmerking over holdingstructuren hieronder.
+Elke rij toont de bestandslink (signed URL, 10 min geldig) en een **"Verwijderen"**-knop — verwijdert de rij, en ruimt het onderliggende bestand in Storage alleen op als geen andere categorie er nog naar verwijst (één bestand kan immers meerdere rijen bedienen).
 
-**Overige documenten:** bij het genereren van een rapportage kun je naast het tekstvak met extra informatie ook meteen één of meerdere bestanden meegeven (`extra_bestanden`, multi-select). Deze worden geüpload, krijgen documenttype `overig` (geen vaste plek in de checklist, altijd optioneel) en verschijnen zowel in de "Overige documenten"-sectie onderaan de zaakpagina als tussen de meegestuurde documenten bij de generatie zelf — ze blijven dus bewaard voor toekomstige versies, niet alleen voor de generatie waarbij ze zijn geüpload.
+**Zaakgegevens-vierkant**: linksboven op de zaakpagina staat een kaart met wat er over de zaak bekend is — naam betrokkene, per onderneming naam/oprichtingsdatum/KvK-nummer, ongevalsdatum, en de datum waarop de zaak is aangemaakt. Ontbrekende velden tonen "onbekend" i.p.v. leeg of een foutmelding.
+
+**Kosten/tijd:** elke upload triggert een Claude-aanroep. Bij een groot bestand kan classificeren tot rond een minuut duren; bij meerdere bestanden tegelijk gebeurt dat na elkaar (geen achtergrond-jobsysteem — de pagina blijft laden tot alles verwerkt is).
+
+**Overige documenten bij rapportgeneratie:** bij het genereren van een rapportage kun je naast het tekstvak met extra informatie ook meteen één of meerdere bestanden meegeven (`extra_bestanden`, multi-select) — deze doorlopen dezelfde classificatie als bij "Documenten uploaden" en verschijnen dus ook gewoon bij de juiste categorie (of "Overige documenten" als niets herkend wordt). Ze blijven bewaard voor toekomstige versies, niet alleen voor de generatie waarbij ze zijn geüpload.
 
 ## Rapportgeneratie
 
 Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/actions.ts` → `genereerRapportage`) een conceptrapportage:
 
 1. Optioneel vul je eerst een tekstvak in met **extra informatie/instructies** voor deze specifieke versie (bv. iets uit een telefoongesprek), en/of upload je er direct één of meerdere **extra bestanden** bij (zie "Overige documenten" hierboven).
-2. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage. PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd. Word (`.docx`) en Excel (`.xlsx`) worden serverside omgezet naar platte tekst (`src/lib/documenten/lees-inhoud.ts`, via `mammoth` resp. `exceljs`) en dan als tekst meegestuurd. Oudere binaire `.doc`/`.xls`-bestanden en overige bestandstypen krijgen een placeholder-melding.
+2. Zaak-, ondernemings- en documentgegevens worden opgehaald; van elk geüpload document wordt de inhoud gedownload uit Storage en via `src/lib/documenten/lees-bestand.ts` omgezet (gedeeld met de classificatiestap). PDF's en scans/foto's (jpg/png) gaan als native document-/image-content mee naar Claude — Claude leest de PDF-tekst en scans zelf, er is geen aparte OCR-stap. Platte tekst wordt als tekst meegestuurd. Word (`.docx`) en Excel (`.xlsx`) worden serverside omgezet naar platte tekst (`src/lib/documenten/lees-inhoud.ts`, via `mammoth` resp. `exceljs`) en dan als tekst meegestuurd. Oudere binaire `.doc`/`.xls`-bestanden en overige bestandstypen krijgen een placeholder-melding.
 3. `src/lib/rapportage/genereer.ts` bouwt een prompt met die gegevens plus het structuursjabloon in `src/lib/rapportage/sjabloon.ts` (secties/opbouw afgeleid van de twee voorbeeldrapportages — geen cliëntgegevens, puur de structuur).
-4. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden.
+4. Claude (`claude-opus-5`, streaming, adaptive thinking) schrijft een concept in markdown, met aannames expliciet gemarkeerd als `[AANNAME]` in plaats van verzonnen zekerheden. Er is geen vaste checklist meer om tegen af te zetten — hoofdstuk 7 (Voortgang) laat Claude op basis van vakkundig oordeel benoemen wat er nog ontbreekt.
 5. Het resultaat wordt opgeslagen als nieuwe rij in `rapportages` (status standaard `concept`) en getoond op `/zaken/[id]/rapportages/[rapportageId]`.
-
-Ontbrekende verplichte documenten worden mee opgestuurd zodat Claude ze noemt in hoofdstuk 7 (Voortgang) in plaats van erover te zwijgen.
 
 **Versies:** elke generatie maakt een nieuwe rij aan — niets wordt overschreven. `/zaken/[id]/rapportages` toont alle versies van een zaak (tijdstip, status, en een preview van eventuele extra informatie). Op elke versie kan de status gewisseld worden tussen `concept` en `definitief`. De extra informatie die bij een versie hoort is ook ná het genereren nog te wijzigen of te verwijderen (los van het opnieuw genereren van een rapport) via een bewerkbaar tekstvak op de versiepagina.
 
@@ -91,7 +91,7 @@ Daarnaast: de auth-middleware ving in eerste instantie ook statische bestanden (
    - Supabase-project (URL + anon key + service role key)
    - `ANTHROPIC_API_KEY` (via [console.anthropic.com](https://console.anthropic.com) → Settings → API Keys — vereist een account met credits, geen gratis tier)
 3. In het Supabase-dashboard: Authentication → URL Configuration → voeg `{NEXT_PUBLIC_APP_URL}/auth/confirm` toe aan de redirect URLs.
-4. Draai de migraties in `supabase/migrations/` in volgorde (`0001_zaken.sql`, `0002_rapportages.sql`, `0003_rapportages_extra.sql`, `0004_zaken_laatst_bewerkt.sql`) in de Supabase SQL Editor.
+4. Draai de migraties in `supabase/migrations/` in volgorde (`0001` t/m `0007`) in de Supabase SQL Editor.
 5. `npm run dev`
 
 De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard → Authentication → Add user, of via de Supabase CLI), aangezien `/admin/gebruikers` zelf al een ingelogde gebruiker vereist.
@@ -102,8 +102,9 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 - Holdingstructuren (een BV die aandeelhouder is van een andere BV, zoals in de BV-voorbeeldrapportage) zijn nog niet in de UI gemodelleerd — `ondernemingen.moederonderneming_id` staat er alvast voor klaar.
 - Financiële cijfers uit de documenten worden niet gestructureerd opgeslagen (geen bedragen-per-jaar/post in de database) — Claude leest ze rechtstreeks uit de aangeleverde documenten bij elke rapportgeneratie, wat werkt maar herbruikbare/doorzoekbare cijfers in de weg staat.
 - Geen limiet/waarschuwing bij zeer grote of zeer veel documenten (Claude API-limiet: 32 MB per request, 600 pagina's).
-- **Geen manier om een zaak of onderneming te bewerken na aanmaken** — sinds ongevalsdatum/rechtsvorm/oprichtingsdatum optioneel zijn geworden bij het aanmaken (zie "Zaken en documentchecklist"), is dit een reëel gat: als die velden worden weggelaten, is er geen UI om ze later alsnog in te vullen en de documentchecklist opnieuw te laten berekenen.
-- AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens).
+- **Documentclassificatie is volledig automatisch, geen controlestap** — een geüpload bestand wordt direct als categorie/vinkje + metadata opgeslagen zonder dat de bedrijfskundige de AI-classificatie eerst ziet/goedkeurt (bewuste keuze). Een verkeerd geclassificeerd document kan wel verwijderd en opnieuw geüpload worden, maar een foutieve automatische aanvulling van bijv. het KvK-nummer valt alleen op bij handmatige controle.
+- **Geen manier om een zaak- of ondernemingsveld handmatig te corrigeren** — alleen documenten uploaden/verwijderen; als de classificatie een fout KvK-nummer/oprichtingsdatum invult, is er geen bewerkformulier om dat recht te zetten (wel op te lossen door het brondocument te verwijderen en de juiste versie opnieuw te uploaden, als dat het probleem was).
+- AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens) — extra relevant nu élk geüpload document (niet alleen bij rapportgeneratie) naar de Claude API gaat voor classificatie.
 - Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
 - Geen vergelijking tussen versies (diff/wat is er veranderd) — je kunt alle versies los bekijken, maar niet naast elkaar.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.
