@@ -31,7 +31,6 @@ export interface RapportageInput {
   ongevalsdatum: string | null
   ondernemingen: OndernemingFeit[]
   documenten: DocumentFeit[]
-  ontbrekendeVerplichteDocumenten: string[]
   extraContext: string | null
 }
 
@@ -94,11 +93,6 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<s
           .join('\n')
       : '(nog niet bekend — dient zo mogelijk uit de aangeleverde documenten te worden afgeleid)'
 
-  const ontbrekendTekst =
-    input.ontbrekendeVerplichteDocumenten.length > 0
-      ? `Let op: de volgende verplichte documenten ontbreken nog en moeten in hoofdstuk 7 (Voortgang) worden genoemd:\n${input.ontbrekendeVerplichteDocumenten.join('\n')}\n\n`
-      : ''
-
   const extraContextTekst = input.extraContext
     ? `Aanvullende informatie/instructies van de bedrijfskundige voor deze versie (weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.extraContext}\n\n`
     : ''
@@ -112,7 +106,7 @@ Ongevalsdatum: ${input.ongevalsdatum ?? 'onbekend — dient zo mogelijk uit de a
 Onderneming(en):
 ${ondernemingenTekst}
 
-${ontbrekendTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
+${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
 
   const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten. Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.`
 

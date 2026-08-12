@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { bepaalVereisteDocumenten, type Rechtsvorm } from '@/lib/documenten/vereisten'
+import type { Rechtsvorm } from '@/lib/documenten/vereisten'
 
 export async function createZaak(formData: FormData) {
   const dossiernummer = String(formData.get('dossiernummer') ?? '').trim()
@@ -14,11 +14,10 @@ export async function createZaak(formData: FormData) {
     redirect(`/zaken/nieuw?error=${encodeURIComponent('Vul naam betrokkene en dossiernummer in')}`)
   }
 
-  const ongevalsdatum = ongevalsdatumStr ? new Date(ongevalsdatumStr) : null
-
   // Andere velden (ongevalsdatum, ondernemingsgegevens) zijn optioneel — die
-  // informatie kan ook uit de aangeleverde documenten blijken. Een onderneming
-  // zonder naam wordt niet aangemaakt.
+  // informatie wordt normaal gesproken uit de geüploade documenten gehaald
+  // (zie src/lib/documenten/classificeer.ts) in plaats van hier handmatig
+  // ingevuld. Een onderneming zonder naam wordt niet aangemaakt.
   const ondernemingenInput = Array.from({ length: aantalOndernemingen }, (_, i) => ({
     naam: String(formData.get(`onderneming_naam_${i}`) ?? '').trim(),
     rechtsvorm: (String(formData.get(`onderneming_rechtsvorm_${i}`) ?? '').trim() || null) as Rechtsvorm | null,
@@ -47,53 +46,21 @@ export async function createZaak(formData: FormData) {
     redirect(`/zaken/nieuw?error=${encodeURIComponent(zaakError?.message ?? 'Aanmaken zaak mislukt')}`)
   }
 
-  let ondernemingen: { id: string; rechtsvorm: Rechtsvorm | null; oprichtingsdatum: string | null }[] = []
-
   if (ondernemingenInput.length > 0) {
-    const { data: ingevoegdeOndernemingen, error: ondernemingenError } = await supabase
-      .from('ondernemingen')
-      .insert(
-        ondernemingenInput.map((o) => ({
-          zaak_id: zaak.id,
-          naam: o.naam,
-          rechtsvorm: o.rechtsvorm,
-          oprichtingsdatum: o.oprichtingsdatum,
-          kvk_nummer: o.kvk_nummer,
-        }))
-      )
-      .select()
-
-    if (ondernemingenError || !ingevoegdeOndernemingen) {
-      redirect(
-        `/zaken/nieuw?error=${encodeURIComponent(ondernemingenError?.message ?? 'Aanmaken ondernemingen mislukt')}`
-      )
-    }
-
-    ondernemingen = ingevoegdeOndernemingen
-  }
-
-  const vereisteDocumenten = bepaalVereisteDocumenten(
-    ongevalsdatum,
-    ondernemingen.map((o) => ({
-      id: o.id,
-      rechtsvorm: o.rechtsvorm,
-      oprichtingsdatum: o.oprichtingsdatum ? new Date(o.oprichtingsdatum) : null,
-    }))
-  )
-
-  if (vereisteDocumenten.length > 0) {
-    const { error: documentenError } = await supabase.from('documenten').insert(
-      vereisteDocumenten.map((d) => ({
+    const { error: ondernemingenError } = await supabase.from('ondernemingen').insert(
+      ondernemingenInput.map((o) => ({
         zaak_id: zaak.id,
-        onderneming_id: d.onderneming_id,
-        type: d.type,
-        jaar: d.jaar,
-        verplicht: d.verplicht,
+        naam: o.naam,
+        rechtsvorm: o.rechtsvorm,
+        oprichtingsdatum: o.oprichtingsdatum,
+        kvk_nummer: o.kvk_nummer,
       }))
     )
 
-    if (documentenError) {
-      redirect(`/zaken/nieuw?error=${encodeURIComponent(documentenError.message)}`)
+    if (ondernemingenError) {
+      redirect(
+        `/zaken/nieuw?error=${encodeURIComponent(ondernemingenError.message ?? 'Aanmaken ondernemingen mislukt')}`
+      )
     }
   }
 

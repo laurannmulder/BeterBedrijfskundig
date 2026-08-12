@@ -4,19 +4,16 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DOCUMENT_LABELS, type DocumentType } from '@/lib/documenten/vereisten'
-import { leesDocxTekst, leesXlsxTekst } from '@/lib/documenten/lees-inhoud'
+import { leesBestandInhoud } from '@/lib/documenten/lees-bestand'
+import { verwerkUpload } from '@/lib/documenten/verwerk-upload'
 import { genereerRapportageTekst, type DocumentFeit, type OndernemingFeit } from '@/lib/rapportage/genereer'
 
-const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-const XLSX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-
-export async function uploadDocument(formData: FormData) {
-  const documentId = String(formData.get('document_id') ?? '')
+export async function uploadDocumenten(formData: FormData) {
   const zaakId = String(formData.get('zaak_id') ?? '')
-  const file = formData.get('file') as File | null
+  const bestanden = formData.getAll('bestanden').filter((f): f is File => f instanceof File && f.size > 0)
 
-  if (!file || file.size === 0) {
-    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Kies eerst een bestand')}`)
+  if (bestanden.length === 0) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Kies eerst een of meer bestanden')}`)
   }
 
   const supabase = await createClient()
@@ -24,42 +21,55 @@ export async function uploadDocument(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: bestaandDocument } = await supabase
+  const mislukt: string[] = []
+  for (const bestand of bestanden) {
+    const resultaat = await verwerkUpload(supabase, zaakId, user!.id, bestand)
+    if (!resultaat.ok) mislukt.push(`${resultaat.bestandsnaam} (${resultaat.error})`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}`)
+
+  if (mislukt.length > 0) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(`Niet gelukt: ${mislukt.join(', ')}`)}`)
+  }
+
+  redirect(`/zaken/${zaakId}`)
+}
+
+export async function verwijderDocument(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const documentId = String(formData.get('document_id') ?? '')
+
+  const supabase = await createClient()
+
+  const { data: document } = await supabase
     .from('documenten')
     .select('storage_path')
     .eq('id', documentId)
     .single()
 
-  const path = `${zaakId}/${documentId}/${file.name}`
+  const { error: deleteError } = await supabase.from('documenten').delete().eq('id', documentId)
 
-  // Bij vervangen met een andere bestandsnaam blijft anders het oude bestand als wees achter.
-  if (bestaandDocument?.storage_path && bestaandDocument.storage_path !== path) {
-    await supabase.storage.from('documenten').remove([bestaandDocument.storage_path])
+  if (deleteError) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(deleteError.message)}`)
   }
 
-  const { error: uploadError } = await supabase.storage
-    .from('documenten')
-    .upload(path, file, { upsert: true })
+  // Eén geüpload bestand kan aan meerdere categorieën voldoen (meerdere rijen
+  // met hetzelfde storage_path) — het bestand zelf pas opruimen als er geen
+  // andere rij meer naar verwijst.
+  if (document?.storage_path) {
+    const { count } = await supabase
+      .from('documenten')
+      .select('id', { count: 'exact', head: true })
+      .eq('storage_path', document.storage_path)
 
-  if (uploadError) {
-    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(uploadError.message)}`)
-  }
-
-  const { error: updateError } = await supabase
-    .from('documenten')
-    .update({
-      storage_path: path,
-      status: 'geupload',
-      uploaded_at: new Date().toISOString(),
-      uploaded_by: user!.id,
-    })
-    .eq('id', documentId)
-
-  if (updateError) {
-    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(updateError.message)}`)
+    if (!count) {
+      await supabase.storage.from('documenten').remove([document.storage_path])
+    }
   }
 
   revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}`)
 }
 
 export async function genereerRapportage(formData: FormData) {
@@ -74,28 +84,9 @@ export async function genereerRapportage(formData: FormData) {
   const extraBestanden = formData.getAll('extra_bestanden').filter((f): f is File => f instanceof File && f.size > 0)
 
   for (const bestand of extraBestanden) {
-    const documentId = crypto.randomUUID()
-    const path = `${zaakId}/${documentId}/${bestand.name}`
-
-    const { error: uploadError } = await supabase.storage.from('documenten').upload(path, bestand)
-    if (uploadError) {
-      redirect(`/zaken/${zaakId}?error=${encodeURIComponent(uploadError.message)}`)
-    }
-
-    const { error: insertError } = await supabase.from('documenten').insert({
-      id: documentId,
-      zaak_id: zaakId,
-      onderneming_id: null,
-      type: 'overig',
-      jaar: null,
-      verplicht: false,
-      status: 'geupload',
-      storage_path: path,
-      uploaded_at: new Date().toISOString(),
-      uploaded_by: user!.id,
-    })
-    if (insertError) {
-      redirect(`/zaken/${zaakId}?error=${encodeURIComponent(insertError.message)}`)
+    const resultaat = await verwerkUpload(supabase, zaakId, user!.id, bestand)
+    if (!resultaat.ok) {
+      redirect(`/zaken/${zaakId}?error=${encodeURIComponent(`${resultaat.bestandsnaam}: ${resultaat.error}`)}`)
     }
   }
 
@@ -138,41 +129,8 @@ export async function genereerRapportage(formData: FormData) {
       continue
     }
 
-    const mediaType = bestand.type
-    if (mediaType === 'application/pdf') {
-      const buffer = Buffer.from(await bestand.arrayBuffer())
-      documenten.push({ ...basis, kind: 'pdf', base64: buffer.toString('base64') })
-    } else if (mediaType.startsWith('image/')) {
-      const buffer = Buffer.from(await bestand.arrayBuffer())
-      documenten.push({ ...basis, kind: 'afbeelding', base64: buffer.toString('base64'), mediaType })
-    } else if (mediaType === 'text/plain' || mediaType === '') {
-      documenten.push({ ...basis, kind: 'tekst', tekst: await bestand.text() })
-    } else if (mediaType === DOCX_MEDIA_TYPE) {
-      try {
-        const buffer = Buffer.from(await bestand.arrayBuffer())
-        documenten.push({ ...basis, kind: 'tekst', tekst: await leesDocxTekst(buffer) })
-      } catch {
-        documenten.push({ ...basis, kind: 'onleesbaar' })
-      }
-    } else if (mediaType === XLSX_MEDIA_TYPE) {
-      try {
-        const buffer = Buffer.from(await bestand.arrayBuffer())
-        documenten.push({ ...basis, kind: 'tekst', tekst: await leesXlsxTekst(buffer) })
-      } catch {
-        documenten.push({ ...basis, kind: 'onleesbaar' })
-      }
-    } else {
-      documenten.push({ ...basis, kind: 'onleesbaar' })
-    }
+    documenten.push({ ...basis, ...(await leesBestandInhoud(bestand)) })
   }
-
-  const ontbrekendeVerplichteDocumenten = documentenRows
-    .filter((d) => d.verplicht && d.status === 'ontbreekt')
-    .map((d) => {
-      const label = DOCUMENT_LABELS[d.type as DocumentType]
-      const onderneming = d.onderneming_id ? ondernemingNaamPerId.get(d.onderneming_id) : null
-      return `${label}${d.jaar ? ` ${d.jaar}` : ''}${onderneming ? ` — ${onderneming}` : ''}`
-    })
 
   const inhoud = await genereerRapportageTekst({
     naamBetrokkene: zaak.naam_betrokkene,
@@ -180,7 +138,6 @@ export async function genereerRapportage(formData: FormData) {
     ongevalsdatum: zaak.ongevalsdatum,
     ondernemingen,
     documenten,
-    ontbrekendeVerplichteDocumenten,
     extraContext,
   })
 

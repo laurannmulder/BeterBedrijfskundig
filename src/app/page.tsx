@@ -27,20 +27,17 @@ export default async function Home() {
     .select('id, naam_betrokkene, dossiernummer, ongevalsdatum, laatst_bewerkt')
     .order('laatst_bewerkt', { ascending: false })
 
-  const { data: documenten } = await supabase.from('documenten').select('zaak_id, verplicht, status')
+  const { data: documenten } = await supabase.from('documenten').select('zaak_id, status')
 
   const { data: rapportages } = await supabase
     .from('rapportages')
     .select('zaak_id, status, created_at')
     .order('created_at', { ascending: false })
 
-  const voortgangPerZaak = new Map<string, { verplicht: number; geupload: number }>()
+  const aantalDocumentenPerZaak = new Map<string, number>()
   for (const d of documenten ?? []) {
-    if (!d.verplicht) continue
-    const huidig = voortgangPerZaak.get(d.zaak_id) ?? { verplicht: 0, geupload: 0 }
-    huidig.verplicht += 1
-    if (d.status !== 'ontbreekt') huidig.geupload += 1
-    voortgangPerZaak.set(d.zaak_id, huidig)
+    if (d.status !== 'geupload') continue
+    aantalDocumentenPerZaak.set(d.zaak_id, (aantalDocumentenPerZaak.get(d.zaak_id) ?? 0) + 1)
   }
 
   const laatsteRapportagePerZaak = new Map<string, { status: string }>()
@@ -50,9 +47,7 @@ export default async function Home() {
     }
   }
 
-  const aantalMetOntbrekendeDocumenten = [...voortgangPerZaak.values()].filter(
-    (v) => v.geupload < v.verplicht
-  ).length
+  const aantalZonderDocumenten = (zaken ?? []).filter((z) => !aantalDocumentenPerZaak.get(z.id)).length
 
   return (
     <>
@@ -63,8 +58,7 @@ export default async function Home() {
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Zaken</h1>
             <p className="mt-1 text-sm text-zinc-500">
               <strong className="font-semibold text-zinc-900">{zaken?.length ?? 0}</strong> zaken ·{' '}
-              <strong className="font-semibold text-zinc-900">{aantalMetOntbrekendeDocumenten}</strong> met
-              ontbrekende documenten
+              <strong className="font-semibold text-zinc-900">{aantalZonderDocumenten}</strong> zonder documenten
             </p>
           </div>
           <LinkButton href="/zaken/nieuw">
@@ -75,10 +69,8 @@ export default async function Home() {
 
         <div className="flex flex-col gap-3">
           {zaken?.map((zaak) => {
-            const voortgang = voortgangPerZaak.get(zaak.id)
+            const aantalDocumenten = aantalDocumentenPerZaak.get(zaak.id) ?? 0
             const rapportage = laatsteRapportagePerZaak.get(zaak.id)
-            const compleet = voortgang && voortgang.geupload >= voortgang.verplicht
-            const percentage = voortgang ? Math.round((voortgang.geupload / voortgang.verplicht) * 100) : 0
 
             return (
               <Link key={zaak.id} href={`/zaken/${zaak.id}`}>
@@ -92,19 +84,9 @@ export default async function Home() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 sm:shrink-0 sm:gap-6">
-                    {voortgang && (
-                      <div className="flex w-32 flex-col gap-1">
-                        <span className={`text-xs font-medium ${compleet ? 'text-emerald-700' : 'text-amber-700'}`}>
-                          {voortgang.geupload}/{voortgang.verplicht} documenten
-                        </span>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
-                          <div
-                            className={`h-full rounded-full ${compleet ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <span className={`text-xs ${aantalDocumenten > 0 ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                      {aantalDocumenten} document{aantalDocumenten === 1 ? '' : 'en'}
+                    </span>
                     {rapportage ? (
                       <Badge tone={rapportage.status === 'definitief' ? 'success' : 'neutral'}>
                         {rapportage.status}

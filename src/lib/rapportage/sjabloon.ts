@@ -36,5 +36,5 @@ STRUCTUUR (volg deze paragraafnummering exact):
   - Tabel "Verlies aan verdienvermogen": Netto-inkomen zonder ongeval min Netto-inkomen met ongeval, per jaar en totaal.
 
 7. VOORTGANG
-  Wat is nog nodig: ontbrekende (verplichte) documenten, openstaande vragen, vervolgstappen.
+  Wat is nog nodig: op basis van vakkundig oordeel ontbrekende informatie of documenten, openstaande vragen, vervolgstappen.
 `.trim()
