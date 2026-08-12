@@ -25,11 +25,27 @@ export type DocumentFeit =
   | (DocumentBasis & { kind: 'afbeelding'; base64: string; mediaType: string })
   | (DocumentBasis & { kind: 'onleesbaar' })
 
+export interface VerzekeraarFeit {
+  naam: string | null
+  contactpersoon: string | null
+  email: string | null
+  kenmerk: string | null
+}
+
+export interface BelangenbehartigerFeit {
+  bureau: string | null
+  naam: string | null
+  email: string | null
+  kenmerk: string | null
+}
+
 export interface RapportageInput {
   naamBetrokkene: string
   dossiernummer: string | null
   ongevalsdatum: string | null
   ondernemingen: OndernemingFeit[]
+  verzekeraar: VerzekeraarFeit
+  belangenbehartiger: BelangenbehartigerFeit
   documenten: DocumentFeit[]
   extraContext: string | null
 }
@@ -105,6 +121,9 @@ Ongevalsdatum: ${input.ongevalsdatum ?? 'onbekend — dient zo mogelijk uit de a
 
 Onderneming(en):
 ${ondernemingenTekst}
+
+Verzekeraar: ${input.verzekeraar.naam ?? 'onbekend'}${input.verzekeraar.contactpersoon ? `, contactpersoon ${input.verzekeraar.contactpersoon}` : ''}${input.verzekeraar.email ? `, ${input.verzekeraar.email}` : ''}${input.verzekeraar.kenmerk ? `, kenmerk ${input.verzekeraar.kenmerk}` : ''}
+Belangenbehartiger: ${input.belangenbehartiger.bureau ?? 'onbekend'}${input.belangenbehartiger.naam ? `, ${input.belangenbehartiger.naam}` : ''}${input.belangenbehartiger.email ? `, ${input.belangenbehartiger.email}` : ''}${input.belangenbehartiger.kenmerk ? `, kenmerk ${input.belangenbehartiger.kenmerk}` : ''}
 
 ${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
 

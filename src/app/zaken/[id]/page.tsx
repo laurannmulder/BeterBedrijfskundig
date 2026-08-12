@@ -175,6 +175,26 @@ export default async function ZaakDetailPage({
               <dd className="text-zinc-900">{zaak.ongevalsdatum ?? 'onbekend'}</dd>
             </div>
             <div className="border-t border-zinc-100 pt-3">
+              <dt className="text-xs text-zinc-400">Verzekeraar</dt>
+              <dd className="text-zinc-900">{zaak.verzekeraar_naam ?? 'onbekend'}</dd>
+              {zaak.verzekeraar_contactpersoon && (
+                <dd className="mt-1 text-xs text-zinc-500">{zaak.verzekeraar_contactpersoon}</dd>
+              )}
+              {zaak.verzekeraar_kenmerk && (
+                <dd className="text-xs text-zinc-500">Kenmerk: {zaak.verzekeraar_kenmerk}</dd>
+              )}
+            </div>
+            <div className="border-t border-zinc-100 pt-3">
+              <dt className="text-xs text-zinc-400">Belangenbehartiger</dt>
+              <dd className="text-zinc-900">{zaak.belangenbehartiger_bureau ?? 'onbekend'}</dd>
+              {zaak.belangenbehartiger_naam && (
+                <dd className="mt-1 text-xs text-zinc-500">{zaak.belangenbehartiger_naam}</dd>
+              )}
+              {zaak.belangenbehartiger_kenmerk && (
+                <dd className="text-xs text-zinc-500">Kenmerk: {zaak.belangenbehartiger_kenmerk}</dd>
+              )}
+            </div>
+            <div className="border-t border-zinc-100 pt-3">
               <dt className="text-xs text-zinc-400">Aangemaakt op</dt>
               <dd className="text-zinc-900">
                 {new Date(zaak.created_at).toLocaleDateString('nl-NL', { dateStyle: 'medium' })}

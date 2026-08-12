@@ -137,6 +137,18 @@ export async function genereerRapportage(formData: FormData) {
     dossiernummer: zaak.dossiernummer,
     ongevalsdatum: zaak.ongevalsdatum,
     ondernemingen,
+    verzekeraar: {
+      naam: zaak.verzekeraar_naam,
+      contactpersoon: zaak.verzekeraar_contactpersoon,
+      email: zaak.verzekeraar_email,
+      kenmerk: zaak.verzekeraar_kenmerk,
+    },
+    belangenbehartiger: {
+      bureau: zaak.belangenbehartiger_bureau,
+      naam: zaak.belangenbehartiger_naam,
+      email: zaak.belangenbehartiger_email,
+      kenmerk: zaak.belangenbehartiger_kenmerk,
+    },
     documenten,
     extraContext,
   })

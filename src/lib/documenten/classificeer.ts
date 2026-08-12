@@ -33,6 +33,14 @@ export interface GeextraheerdeMetadata {
   oprichtingsdatum: string | null
   kvkNummer: string | null
   ongevalsdatum: string | null
+  verzekeraarNaam: string | null
+  verzekeraarContactpersoon: string | null
+  verzekeraarEmail: string | null
+  verzekeraarKenmerk: string | null
+  belangenbehartigerBureau: string | null
+  belangenbehartigerNaam: string | null
+  belangenbehartigerEmail: string | null
+  belangenbehartigerKenmerk: string | null
 }
 
 export interface ClassificatieResultaat {
@@ -48,6 +56,14 @@ const LEEG_RESULTAAT: ClassificatieResultaat = {
     oprichtingsdatum: null,
     kvkNummer: null,
     ongevalsdatum: null,
+    verzekeraarNaam: null,
+    verzekeraarContactpersoon: null,
+    verzekeraarEmail: null,
+    verzekeraarKenmerk: null,
+    belangenbehartigerBureau: null,
+    belangenbehartigerNaam: null,
+    belangenbehartigerEmail: null,
+    belangenbehartigerKenmerk: null,
   },
 }
 
@@ -84,8 +100,30 @@ const TOOL: Anthropic.Messages.Tool = {
           oprichtingsdatum: { type: ['string', 'null'], description: 'Datum van oprichting/inschrijving, formaat YYYY-MM-DD.' },
           kvkNummer: { type: ['string', 'null'] },
           ongevalsdatum: { type: ['string', 'null'], description: 'Datum van het ongeval zoals vermeld in bv. een opdrachtbrief, formaat YYYY-MM-DD.' },
+          verzekeraarNaam: { type: ['string', 'null'], description: 'Naam van de verzekeraar, bv. uit een opdrachtbrief.' },
+          verzekeraarContactpersoon: { type: ['string', 'null'], description: 'Naam van de contactpersoon bij de verzekeraar.' },
+          verzekeraarEmail: { type: ['string', 'null'] },
+          verzekeraarKenmerk: { type: ['string', 'null'], description: 'Dossier-/zaakkenmerk van de verzekeraar.' },
+          belangenbehartigerBureau: { type: ['string', 'null'], description: 'Naam van het letselschadebureau/kantoor van de belangenbehartiger.' },
+          belangenbehartigerNaam: { type: ['string', 'null'], description: 'Naam van de belangenbehartiger zelf.' },
+          belangenbehartigerEmail: { type: ['string', 'null'] },
+          belangenbehartigerKenmerk: { type: ['string', 'null'], description: 'Dossier-/zaakkenmerk van de belangenbehartiger.' },
         },
-        required: ['ondernemingNaam', 'rechtsvorm', 'oprichtingsdatum', 'kvkNummer', 'ongevalsdatum'],
+        required: [
+          'ondernemingNaam',
+          'rechtsvorm',
+          'oprichtingsdatum',
+          'kvkNummer',
+          'ongevalsdatum',
+          'verzekeraarNaam',
+          'verzekeraarContactpersoon',
+          'verzekeraarEmail',
+          'verzekeraarKenmerk',
+          'belangenbehartigerBureau',
+          'belangenbehartigerNaam',
+          'belangenbehartigerEmail',
+          'belangenbehartigerKenmerk',
+        ],
       },
     },
     required: ['categorieen', 'metadata'],
@@ -104,7 +142,7 @@ Categorieën en hun betekenis:
 - vof_contract: vennootschapscontract van een VOF.
 - vennootschapscontract: oprichtingsakte/statuten van een BV.
 - kvk_uittreksel: uittreksel Kamer van Koophandel.
-- opdrachtbrief: de opdrachtbrief/-bevestiging voor deze letselschadezaak (vermeldt vaak de ongevalsdatum).
+- opdrachtbrief: de opdrachtbrief/-bevestiging voor deze letselschadezaak (vermeldt vaak de ongevalsdatum, en vaak ook de verzekeraar en/of belangenbehartiger met hun contactgegevens en kenmerk).
 
 Een bestand kan meerdere categorieën bevatten (bv. jaarcijfers van meerdere jaren, of jaarcijfers én een aangifte IB in hetzelfde bestand) — geef dan meerdere items terug in "categorieen". Geef een lege lijst terug als niets uit de lijst herkenbaar in het document voorkomt.`
 
@@ -168,6 +206,14 @@ export async function classificeerDocument(inhoud: BestandInhoud): Promise<Class
       oprichtingsdatum: input.metadata?.oprichtingsdatum ?? null,
       kvkNummer: input.metadata?.kvkNummer ?? null,
       ongevalsdatum: input.metadata?.ongevalsdatum ?? null,
+      verzekeraarNaam: input.metadata?.verzekeraarNaam ?? null,
+      verzekeraarContactpersoon: input.metadata?.verzekeraarContactpersoon ?? null,
+      verzekeraarEmail: input.metadata?.verzekeraarEmail ?? null,
+      verzekeraarKenmerk: input.metadata?.verzekeraarKenmerk ?? null,
+      belangenbehartigerBureau: input.metadata?.belangenbehartigerBureau ?? null,
+      belangenbehartigerNaam: input.metadata?.belangenbehartigerNaam ?? null,
+      belangenbehartigerEmail: input.metadata?.belangenbehartigerEmail ?? null,
+      belangenbehartigerKenmerk: input.metadata?.belangenbehartigerKenmerk ?? null,
     },
   }
 }

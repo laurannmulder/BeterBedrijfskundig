@@ -22,14 +22,37 @@ const ONDERNEMING_GESCOPEERDE_TYPES = new Set<DocumentType>([
   'kvk_uittreksel',
 ])
 
-// Vult zaken.ongevalsdatum alleen aan als die nog niet bekend is — overschrijft
-// nooit een al ingevulde waarde.
-async function vulOngevalsdatumAan(supabase: SupabaseClient, zaakId: string, ongevalsdatum: string | null) {
-  if (!ongevalsdatum) return
+// Kolommen op `zaken` die uit documenten geëxtraheerd kunnen worden en alleen
+// aangevuld mogen worden als ze nog leeg zijn — nooit een al ingevulde waarde
+// overschrijven.
+const AAN_TE_VULLEN_ZAAKVELDEN = [
+  'ongevalsdatum',
+  'verzekeraar_naam',
+  'verzekeraar_contactpersoon',
+  'verzekeraar_email',
+  'verzekeraar_kenmerk',
+  'belangenbehartiger_bureau',
+  'belangenbehartiger_naam',
+  'belangenbehartiger_email',
+  'belangenbehartiger_kenmerk',
+] as const
 
-  const { data: zaak } = await supabase.from('zaken').select('ongevalsdatum').eq('id', zaakId).single()
-  if (zaak && !zaak.ongevalsdatum) {
-    await supabase.from('zaken').update({ ongevalsdatum }).eq('id', zaakId)
+async function vulZaakveldenAan(
+  supabase: SupabaseClient,
+  zaakId: string,
+  velden: Record<(typeof AAN_TE_VULLEN_ZAAKVELDEN)[number], string | null>
+) {
+  const { data } = await supabase.from('zaken').select(AAN_TE_VULLEN_ZAAKVELDEN.join(',')).eq('id', zaakId).single()
+  const zaak = data as Record<(typeof AAN_TE_VULLEN_ZAAKVELDEN)[number], string | null> | null
+  if (!zaak) return
+
+  const updates: Record<string, string> = {}
+  for (const veld of AAN_TE_VULLEN_ZAAKVELDEN) {
+    if (!zaak[veld] && velden[veld]) updates[veld] = velden[veld]!
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await supabase.from('zaken').update(updates).eq('id', zaakId)
   }
 }
 
@@ -104,7 +127,17 @@ export async function verwerkUpload(
   const inhoud = await leesBestandInhoud(bestand)
   const resultaat = await classificeerDocument(inhoud)
 
-  await vulOngevalsdatumAan(supabase, zaakId, resultaat.metadata.ongevalsdatum)
+  await vulZaakveldenAan(supabase, zaakId, {
+    ongevalsdatum: resultaat.metadata.ongevalsdatum,
+    verzekeraar_naam: resultaat.metadata.verzekeraarNaam,
+    verzekeraar_contactpersoon: resultaat.metadata.verzekeraarContactpersoon,
+    verzekeraar_email: resultaat.metadata.verzekeraarEmail,
+    verzekeraar_kenmerk: resultaat.metadata.verzekeraarKenmerk,
+    belangenbehartiger_bureau: resultaat.metadata.belangenbehartigerBureau,
+    belangenbehartiger_naam: resultaat.metadata.belangenbehartigerNaam,
+    belangenbehartiger_email: resultaat.metadata.belangenbehartigerEmail,
+    belangenbehartiger_kenmerk: resultaat.metadata.belangenbehartigerKenmerk,
+  })
   const ondernemingId = await matchOfMaakOnderneming(supabase, zaakId, resultaat.metadata)
 
   const herkendeRijen = resultaat.categorieen
