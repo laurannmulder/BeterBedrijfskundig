@@ -52,7 +52,7 @@ Categorieën: `aangifte_ib` en `opdrachtbrief` horen bij de zaak/betrokkene; `ja
 
 Elke rij toont de bestandslink (signed URL, 10 min geldig) en een **"Verwijderen"**-knop — verwijdert de rij, en ruimt het onderliggende bestand in Storage alleen op als geen andere categorie er nog naar verwijst (één bestand kan immers meerdere rijen bedienen).
 
-**Zaakgegevens-vierkant**: linksboven op de zaakpagina staat een kaart met wat er over de zaak bekend is — naam betrokkene, per onderneming naam/oprichtingsdatum/KvK-nummer, ongevalsdatum, verzekeraar, belangenbehartiger, en de datum waarop de zaak is aangemaakt. Ontbrekende velden tonen "onbekend" i.p.v. leeg of een foutmelding.
+**Zaakgegevens-vierkant**: linksboven op de zaakpagina staat een kaart met wat er over de zaak bekend is — naam betrokkene, per onderneming naam/oprichtingsdatum/KvK-nummer, ongevalsdatum, verzekeraar, belangenbehartiger, en de datum waarop de zaak is aangemaakt. Ontbrekende velden tonen "onbekend" i.p.v. leeg of een foutmelding. Onderaan staat een **"Zaak verwijderen"**-knop, met een bevestigingsdialoog (`window.confirm`) die expliciet vermeldt dat ook alle ondernemingen, documenten en rapportages van de zaak verdwijnen — dit is onomkeerbaar. Verwijdert de zaakrij (Postgres cascade ruimt `ondernemingen`/`documenten`/`rapportages` vanzelf mee op) en daarna alle bijbehorende bestanden in Storage; redirect na afloop naar het dashboard.
 
 **Kosten/tijd:** elke upload triggert een Claude-aanroep. Bij een groot bestand kan classificeren tot rond een minuut duren; bij meerdere bestanden tegelijk gebeurt dat na elkaar (geen achtergrond-jobsysteem — de pagina blijft laden tot alles verwerkt is).
 
@@ -121,7 +121,7 @@ De data in deze app (financiële gegevens, medische/letselcontext, persoonsgegev
    - Supabase-project (URL + anon key + service role key)
    - `ANTHROPIC_API_KEY` (via [console.anthropic.com](https://console.anthropic.com) → Settings → API Keys — vereist een account met credits, geen gratis tier)
 3. In het Supabase-dashboard: Authentication → URL Configuration → voeg `{NEXT_PUBLIC_APP_URL}/auth/confirm` toe aan de redirect URLs.
-4. Draai de migraties in `supabase/migrations/` in volgorde (`0001` t/m `0008`) in de Supabase SQL Editor.
+4. Draai de migraties in `supabase/migrations/` in volgorde (`0001` t/m `0009`) in de Supabase SQL Editor.
 5. `npm run dev`
 
 De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard → Authentication → Add user, of via de Supabase CLI), aangezien `/admin/gebruikers` zelf al een ingelogde gebruiker vereist.
@@ -135,8 +135,6 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 - **Documentclassificatie is volledig automatisch, geen controlestap** — een geüpload bestand wordt direct als categorie/vinkje + metadata opgeslagen zonder dat de bedrijfskundige de AI-classificatie eerst ziet/goedkeurt (bewuste keuze). Een verkeerd geclassificeerd document kan wel verwijderd en opnieuw geüpload worden, maar een foutieve automatische aanvulling van bijv. het KvK-nummer valt alleen op bij handmatige controle.
 - **Geen manier om een zaak- of ondernemingsveld handmatig te corrigeren** — alleen documenten uploaden/verwijderen; als de classificatie een fout KvK-nummer/oprichtingsdatum invult, is er geen bewerkformulier om dat recht te zetten (wel op te lossen door het brondocument te verwijderen en de juiste versie opnieuw te uploaden, als dat het probleem was).
 - AVG/compliance — zie de volledige uitwerking in "Gegevensverwerking en privacy" hierboven; met name **Zero Data Retention bij Anthropic aanvragen** staat nog open, dat is de belangrijkste openstaande actie.
-- **Migratie `0008_verzekeraar_belangenbehartiger.sql` moet nog handmatig gedraaid worden** (2026-08-12, zie Setup) — tot die tijd bestaan de nieuwe kolommen niet in de database en blijft "Verzekeraar"/"Belangenbehartiger" op de zaakpagina altijd "onbekend" tonen, ook al werkt de classificatie/extractiecode al wel.
-- Twee documenttypen kwamen naar voren als bestandsnamen in de onderliggende stukken van het tweede voorbeeldrapportage (Serhar-zaak, 2026-08-12) maar zijn nog niet als herkenbare categorie toegevoegd: **AD-verslag** (arbeidsdeskundig verslag) en **BA-analyse** (bedrijfsanalyse). Vallen nu onder "Overig". Toevoegen als er behoefte aan blijkt.
 - Geen vergelijking tussen versies (diff/wat is er veranderd) — je kunt alle versies los bekijken, maar niet naast elkaar.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.
 - **Custom SMTP (Resend) nog niet ingesteld** — bewust uitgesteld. Zonder custom SMTP kunnen de e-mailtemplates niet aangepast worden (Supabase-beperking op het gratis plan), waardoor de wachtwoord-reset-link kwetsbaar blijft voor mail-scanners zoals Outlook Safe Links (zie "Auth-flow" hierboven). Vereist een geverifieerd domein bij Resend — nog geen domein voor dit project geverifieerd (en Bloom's Resend-koppeling blijkt ook geen geverifieerd domein te hebben, gebruikt de `onboarding@resend.dev`-testafzender, die vermoedelijk alleen aankomt bij het eigen Resend-accountadres — dat is een los aandachtspunt voor Bloom).

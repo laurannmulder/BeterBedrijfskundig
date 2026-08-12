@@ -10,8 +10,9 @@ import {
 } from '@/lib/documenten/vereisten'
 import { Header } from '@/components/Header'
 import { Card, LinkButton, PageHeader, fileInputClass, inputClass, labelClass } from '@/components/ui'
-import { uploadDocumenten, verwijderDocument, genereerRapportage } from './actions'
+import { uploadDocumenten, verwijderDocument, verwijderZaak, genereerRapportage } from './actions'
 import { GenereerKnop } from './genereer-knop'
+import { VerwijderZaakForm } from './verwijder-zaak-form'
 
 const ZAAK_DOCUMENT_VOLGORDE: DocumentType[] = ['opdrachtbrief', 'aangifte_ib']
 
@@ -201,6 +202,9 @@ export default async function ZaakDetailPage({
               </dd>
             </div>
           </dl>
+          <div className="border-t border-zinc-100 pt-3">
+            <VerwijderZaakForm zaakId={zaak.id} naamBetrokkene={zaak.naam_betrokkene} action={verwijderZaak} />
+          </div>
         </Card>
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">

@@ -72,6 +72,33 @@ export async function verwijderDocument(formData: FormData) {
   redirect(`/zaken/${zaakId}`)
 }
 
+export async function verwijderZaak(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const supabase = await createClient()
+
+  // Bestandspaden vooraf ophalen — na het verwijderen van de zaak zijn de
+  // documenten-rijen (en daarmee hun storage_path) al weg door de cascade.
+  const { data: documentenRows } = await supabase.from('documenten').select('storage_path').eq('zaak_id', zaakId)
+  const paths = Array.from(
+    new Set((documentenRows ?? []).map((d) => d.storage_path).filter((p): p is string => Boolean(p)))
+  )
+
+  // Cascade in de database ruimt ondernemingen, documenten en rapportages
+  // vanzelf mee op (on delete cascade, zie migratie 0001/0002).
+  const { error } = await supabase.from('zaken').delete().eq('id', zaakId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  if (paths.length > 0) {
+    await supabase.storage.from('documenten').remove(paths)
+  }
+
+  revalidatePath('/')
+  redirect('/')
+}
+
 export async function genereerRapportage(formData: FormData) {
   const zaakId = String(formData.get('zaak_id') ?? '')
   const extraContext = String(formData.get('extra_context') ?? '').trim() || null
