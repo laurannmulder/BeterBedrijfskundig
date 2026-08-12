@@ -46,8 +46,8 @@ export const ONDERNEMING_DOCUMENT_VOLGORDE: DocumentType[] = [
 
 export interface OndernemingInput {
   id: string
-  rechtsvorm: Rechtsvorm
-  oprichtingsdatum: Date
+  rechtsvorm: Rechtsvorm | null
+  oprichtingsdatum: Date | null
 }
 
 export interface VereisteDocument {
@@ -70,35 +70,46 @@ function jarenReeks(oprichtingsdatum: Date, ongevalsdatum: Date): number[] {
   return jaren
 }
 
+// Berekent alleen de documenten waarvoor genoeg gegevens bekend zijn. Ontbreekt
+// de ongevalsdatum, dan kunnen geen jaargebonden documenten (aangifte IB,
+// jaarcijfers, etc.) worden bepaald voor de hele zaak. Ontbreekt bij een
+// onderneming de oprichtingsdatum, dan geldt dat alleen voor die onderneming —
+// een VOF-/vennootschapscontract kan nog wel bepaald worden zodra de
+// rechtsvorm bekend is, want die is niet jaargebonden.
 export function bepaalVereisteDocumenten(
-  ongevalsdatum: Date,
+  ongevalsdatum: Date | null,
   ondernemingen: OndernemingInput[]
 ): VereisteDocument[] {
   const documenten: VereisteDocument[] = []
 
-  // Aangifte IB hoort bij de betrokkene, niet bij een specifieke onderneming —
-  // jaren gebaseerd op de oudste onderneming in de zaak.
-  const oudsteOprichting = ondernemingen.reduce<Date | null>((oudste, onderneming) => {
-    if (!oudste || onderneming.oprichtingsdatum < oudste) return onderneming.oprichtingsdatum
-    return oudste
-  }, null)
+  if (ongevalsdatum) {
+    // Aangifte IB hoort bij de betrokkene, niet bij een specifieke onderneming —
+    // jaren gebaseerd op de oudste onderneming in de zaak.
+    const oudsteOprichting = ondernemingen.reduce<Date | null>((oudste, onderneming) => {
+      if (!onderneming.oprichtingsdatum) return oudste
+      if (!oudste || onderneming.oprichtingsdatum < oudste) return onderneming.oprichtingsdatum
+      return oudste
+    }, null)
 
-  if (oudsteOprichting) {
-    for (const jaar of jarenReeks(oudsteOprichting, ongevalsdatum)) {
-      documenten.push({ onderneming_id: null, type: 'aangifte_ib', jaar, verplicht: true })
+    if (oudsteOprichting) {
+      for (const jaar of jarenReeks(oudsteOprichting, ongevalsdatum)) {
+        documenten.push({ onderneming_id: null, type: 'aangifte_ib', jaar, verplicht: true })
+      }
     }
   }
 
   for (const onderneming of ondernemingen) {
-    const jaren = jarenReeks(onderneming.oprichtingsdatum, ongevalsdatum)
+    if (ongevalsdatum && onderneming.oprichtingsdatum) {
+      const jaren = jarenReeks(onderneming.oprichtingsdatum, ongevalsdatum)
 
-    for (const jaar of jaren) {
-      documenten.push({ onderneming_id: onderneming.id, type: 'jaarcijfers', jaar, verplicht: true })
-      documenten.push({ onderneming_id: onderneming.id, type: 'aangifte_ob', jaar, verplicht: false })
-      documenten.push({ onderneming_id: onderneming.id, type: 'leasecontract', jaar, verplicht: false })
-      documenten.push({ onderneming_id: onderneming.id, type: 'huurcontract', jaar, verplicht: false })
-      documenten.push({ onderneming_id: onderneming.id, type: 'bankafschriften', jaar, verplicht: false })
-      documenten.push({ onderneming_id: onderneming.id, type: 'arbeidsovereenkomst', jaar, verplicht: false })
+      for (const jaar of jaren) {
+        documenten.push({ onderneming_id: onderneming.id, type: 'jaarcijfers', jaar, verplicht: true })
+        documenten.push({ onderneming_id: onderneming.id, type: 'aangifte_ob', jaar, verplicht: false })
+        documenten.push({ onderneming_id: onderneming.id, type: 'leasecontract', jaar, verplicht: false })
+        documenten.push({ onderneming_id: onderneming.id, type: 'huurcontract', jaar, verplicht: false })
+        documenten.push({ onderneming_id: onderneming.id, type: 'bankafschriften', jaar, verplicht: false })
+        documenten.push({ onderneming_id: onderneming.id, type: 'arbeidsovereenkomst', jaar, verplicht: false })
+      }
     }
 
     if (onderneming.rechtsvorm === 'vof') {

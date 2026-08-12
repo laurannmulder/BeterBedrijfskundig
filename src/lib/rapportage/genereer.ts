@@ -4,8 +4,8 @@ import { RAPPORTAGE_SJABLOON } from './sjabloon'
 
 export interface OndernemingFeit {
   naam: string
-  rechtsvorm: string
-  oprichtingsdatum: string
+  rechtsvorm: string | null
+  oprichtingsdatum: string | null
   kvk_nummer: string | null
 }
 
@@ -28,7 +28,7 @@ export type DocumentFeit =
 export interface RapportageInput {
   naamBetrokkene: string
   dossiernummer: string | null
-  ongevalsdatum: string
+  ongevalsdatum: string | null
   ondernemingen: OndernemingFeit[]
   documenten: DocumentFeit[]
   ontbrekendeVerplichteDocumenten: string[]
@@ -82,14 +82,17 @@ function documentBlokken(documenten: DocumentFeit[]): ContentBlock[] {
 export async function genereerRapportageTekst(input: RapportageInput): Promise<string> {
   const client = createClaudeClient()
 
-  const ondernemingenTekst = input.ondernemingen
-    .map(
-      (o) =>
-        `- ${o.naam} (${o.rechtsvorm}, opgericht ${o.oprichtingsdatum}${
-          o.kvk_nummer ? `, KvK ${o.kvk_nummer}` : ''
-        })`
-    )
-    .join('\n')
+  const ondernemingenTekst =
+    input.ondernemingen.length > 0
+      ? input.ondernemingen
+          .map(
+            (o) =>
+              `- ${o.naam} (${o.rechtsvorm ?? 'rechtsvorm onbekend'}, opgericht ${o.oprichtingsdatum ?? 'datum onbekend'}${
+                o.kvk_nummer ? `, KvK ${o.kvk_nummer}` : ''
+              })`
+          )
+          .join('\n')
+      : '(nog niet bekend — dient zo mogelijk uit de aangeleverde documenten te worden afgeleid)'
 
   const ontbrekendTekst =
     input.ontbrekendeVerplichteDocumenten.length > 0
@@ -104,7 +107,7 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<s
 
 Betrokkene: ${input.naamBetrokkene}
 Dossiernummer: ${input.dossiernummer ?? 'onbekend'}
-Ongevalsdatum: ${input.ongevalsdatum}
+Ongevalsdatum: ${input.ongevalsdatum ?? 'onbekend — dient zo mogelijk uit de aangeleverde documenten te worden afgeleid'}
 
 Onderneming(en):
 ${ondernemingenTekst}

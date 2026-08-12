@@ -148,7 +148,7 @@ export default async function ZaakDetailPage({
           backHref="/"
           backLabel="Alle zaken"
           title={zaak.naam_betrokkene}
-          subtitle={`${zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}Ongevalsdatum ${zaak.ongevalsdatum}`}
+          subtitle={`${zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}${zaak.ongevalsdatum ? `Ongevalsdatum ${zaak.ongevalsdatum}` : 'Ongevalsdatum onbekend'}`}
           actions={
             !!aantalRapportages && (
               <LinkButton href={`/zaken/${id}/rapportages`} variant="secondary" size="sm">
@@ -197,45 +197,54 @@ export default async function ZaakDetailPage({
           </form>
         </Card>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-zinc-900">Aangifte inkomstenbelasting (betrokkene)</h2>
-          <Card className="divide-y divide-zinc-100">
-            {aangifteIbDocumenten.map((doc) => (
-              <DocumentRij key={doc.id} zaakId={id} doc={doc} />
-            ))}
-          </Card>
-        </section>
+        {aangifteIbDocumenten.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-zinc-900">Aangifte inkomstenbelasting (betrokkene)</h2>
+            <Card className="divide-y divide-zinc-100">
+              {aangifteIbDocumenten.map((doc) => (
+                <DocumentRij key={doc.id} zaakId={id} doc={doc} />
+              ))}
+            </Card>
+          </section>
+        )}
 
         {ondernemingen?.map((onderneming) => {
           const documentenOnderneming = (documenten ?? []).filter((d) => d.onderneming_id === onderneming.id)
+          const rechtsvorm = onderneming.rechtsvorm as Rechtsvorm | null
 
           return (
             <section key={onderneming.id} className="flex flex-col gap-3">
               <h2 className="text-sm font-semibold text-zinc-900">
                 {onderneming.naam}{' '}
                 <span className="font-normal text-zinc-400">
-                  ({RECHTSVORM_LABELS[onderneming.rechtsvorm as Rechtsvorm]})
+                  ({rechtsvorm ? RECHTSVORM_LABELS[rechtsvorm] : 'rechtsvorm onbekend'})
                 </span>
               </h2>
-              <div className="flex flex-col gap-5">
-                {ONDERNEMING_DOCUMENT_VOLGORDE.map((type) => {
-                  const documentenType = documentenOnderneming.filter((d) => d.type === type)
-                  if (documentenType.length === 0) return null
+              {documentenOnderneming.length === 0 ? (
+                <p className="text-xs text-zinc-400">
+                  Nog geen documentchecklist — hiervoor zijn ongevalsdatum, rechtsvorm en oprichtingsdatum nodig.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {ONDERNEMING_DOCUMENT_VOLGORDE.map((type) => {
+                    const documentenType = documentenOnderneming.filter((d) => d.type === type)
+                    if (documentenType.length === 0) return null
 
-                  return (
-                    <div key={type} className="flex flex-col gap-2">
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                        {DOCUMENT_LABELS[type]}
-                      </h3>
-                      <Card className="divide-y divide-zinc-100">
-                        {documentenType.map((doc) => (
-                          <DocumentRij key={doc.id} zaakId={id} doc={doc} />
-                        ))}
-                      </Card>
-                    </div>
-                  )
-                })}
-              </div>
+                    return (
+                      <div key={type} className="flex flex-col gap-2">
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                          {DOCUMENT_LABELS[type]}
+                        </h3>
+                        <Card className="divide-y divide-zinc-100">
+                          {documentenType.map((doc) => (
+                            <DocumentRij key={doc.id} zaakId={id} doc={doc} />
+                          ))}
+                        </Card>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </section>
           )
         })}

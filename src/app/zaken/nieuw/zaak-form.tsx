@@ -23,13 +23,19 @@ export function ZaakForm({ error }: { error?: string }) {
         </label>
         <label className={labelClass}>
           Dossiernummer
-          <input name="dossiernummer" className={inputClass} />
+          <input name="dossiernummer" required className={inputClass} />
         </label>
         <label className={labelClass}>
-          Ongevalsdatum
-          <input name="ongevalsdatum" type="date" required className={inputClass} />
+          Ongevalsdatum <span className="font-normal text-zinc-400">(optioneel)</span>
+          <input name="ongevalsdatum" type="date" className={inputClass} />
         </label>
       </Card>
+
+      {aantalOndernemingen > 0 && (
+        <p className="-mb-2 text-xs text-zinc-400">
+          Onderneming(en) — optioneel, kan ook later uit de aangeleverde documenten blijken.
+        </p>
+      )}
 
       {Array.from({ length: aantalOndernemingen }, (_, i) => (
         <Card key={i} className="flex flex-col gap-4 p-6">
@@ -37,27 +43,23 @@ export function ZaakForm({ error }: { error?: string }) {
             <h2 className="text-sm font-semibold text-zinc-900">
               Onderneming {aantalOndernemingen > 1 ? i + 1 : ''}
             </h2>
-            {aantalOndernemingen > 1 && (
-              <button
-                type="button"
-                onClick={() => setAantalOndernemingen((n) => n - 1)}
-                className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Verwijderen
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setAantalOndernemingen((n) => n - 1)}
+              className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Verwijderen
+            </button>
           </div>
           <label className={labelClass}>
             Naam / handelsnaam
-            <input name={`onderneming_naam_${i}`} required className={inputClass} />
+            <input name={`onderneming_naam_${i}`} className={inputClass} />
           </label>
           <label className={labelClass}>
             Rechtsvorm
-            <select name={`onderneming_rechtsvorm_${i}`} required defaultValue="" className={inputClass}>
-              <option value="" disabled>
-                Kies een rechtsvorm
-              </option>
+            <select name={`onderneming_rechtsvorm_${i}`} defaultValue="" className={inputClass}>
+              <option value="">Nog niet bekend</option>
               {RECHTSVORMEN.map((rv) => (
                 <option key={rv} value={rv}>
                   {RECHTSVORM_LABELS[rv]}
@@ -67,7 +69,7 @@ export function ZaakForm({ error }: { error?: string }) {
           </label>
           <label className={labelClass}>
             Oprichtingsdatum
-            <input name={`onderneming_oprichtingsdatum_${i}`} type="date" required className={inputClass} />
+            <input name={`onderneming_oprichtingsdatum_${i}`} type="date" className={inputClass} />
           </label>
           <label className={labelClass}>
             KvK-nummer
@@ -81,7 +83,7 @@ export function ZaakForm({ error }: { error?: string }) {
         onClick={() => setAantalOndernemingen((n) => n + 1)}
         className="self-start text-sm text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline"
       >
-        + Nog een onderneming toevoegen (bv. bij meerdere BV&apos;s)
+        + Onderneming toevoegen (bv. bij meerdere BV&apos;s)
       </button>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

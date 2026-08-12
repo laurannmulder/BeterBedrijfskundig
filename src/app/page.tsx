@@ -87,7 +87,7 @@ export default async function Home() {
                     <span className="font-medium text-zinc-900">{zaak.naam_betrokkene}</span>
                     <span className="text-xs text-zinc-500">
                       {zaak.dossiernummer ? `Dossier ${zaak.dossiernummer} · ` : ''}
-                      Ongeval {zaak.ongevalsdatum}
+                      {zaak.ongevalsdatum ? `Ongeval ${zaak.ongevalsdatum}` : 'Ongevalsdatum onbekend'}
                     </span>
                   </div>
 
