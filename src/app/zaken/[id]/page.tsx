@@ -150,7 +150,7 @@ export default async function ZaakDetailPage({
   return (
     <>
       <Header userEmail={user?.email} />
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8 lg:flex-row lg:items-start">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8 lg:flex-row lg:items-start">
         <Card className="flex w-full shrink-0 flex-col gap-4 p-5 lg:sticky lg:top-20 lg:w-64">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Zaakgegevens</h2>
           <dl className="flex flex-col gap-3 text-sm">
@@ -224,35 +224,6 @@ export default async function ZaakDetailPage({
           />
 
           {error && <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>}
-
-          <Card className="p-6">
-            <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-zinc-900">
-              <UploadCloud className="h-4 w-4" />
-              Documenten uploaden
-            </h2>
-            <form action={uploadDocumenten} className="flex flex-col gap-3">
-              <input type="hidden" name="zaak_id" value={id} />
-              <input
-                type="file"
-                name="bestanden"
-                accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
-                multiple
-                className={fileInputClass}
-              />
-              <p className="text-xs text-zinc-400">
-                PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Elk bestand wordt automatisch
-                herkend (bijv. jaarcijfers, aangifte IB, KvK-uittreksel) — één bestand kan aan meerdere categorieën
-                voldoen. Ontbrekende zaak-/ondernemingsgegevens (KvK-nummer, oprichtingsdatum, ongevalsdatum) worden
-                zo mogelijk automatisch aangevuld. Dit kan bij grote bestanden een tijdje duren.
-              </p>
-              <button
-                type="submit"
-                className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
-              >
-                Uploaden
-              </button>
-            </form>
-          </Card>
 
           <Card className="p-6">
             <h2 className="mb-4 text-sm font-semibold text-zinc-900">Rapport genereren</h2>
@@ -337,6 +308,35 @@ export default async function ZaakDetailPage({
             </section>
           )}
         </div>
+
+        <Card className="flex w-full shrink-0 flex-col gap-4 p-5 lg:sticky lg:top-20 lg:w-72">
+          <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            <UploadCloud className="h-3.5 w-3.5" />
+            Documenten uploaden
+          </h2>
+          <form action={uploadDocumenten} className="flex flex-col gap-3">
+            <input type="hidden" name="zaak_id" value={id} />
+            <input
+              type="file"
+              name="bestanden"
+              accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
+              multiple
+              className={fileInputClass}
+            />
+            <p className="text-xs text-zinc-400">
+              PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Elk bestand wordt automatisch
+              herkend (bijv. jaarcijfers, aangifte IB, KvK-uittreksel) — één bestand kan aan meerdere categorieën
+              voldoen. Ontbrekende zaak-/ondernemingsgegevens (KvK-nummer, oprichtingsdatum, ongevalsdatum) worden
+              zo mogelijk automatisch aangevuld. Dit kan bij grote bestanden een tijdje duren.
+            </p>
+            <button
+              type="submit"
+              className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
+            >
+              Uploaden
+            </button>
+          </form>
+        </Card>
       </main>
     </>
   )
