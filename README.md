@@ -83,6 +83,36 @@ Bij het opzetten zijn drie losse Vercel-eigenaardigheden tegengekomen — nuttig
 
 Daarnaast: de auth-middleware ving in eerste instantie ook statische bestanden (zoals `/logo.svg`) af en stuurde die door naar `/login` voor niet-ingelogde bezoekers. De matcher in `src/middleware.ts` sluit nu gangbare statische extensies uit.
 
+## Gegevensverwerking en privacy
+
+De data in deze app (financiële gegevens, medische/letselcontext, persoonsgegevens van betrokkenen) is uiterst gevoelig. Dit legt vast wie de data raakt, wat daarin al technisch geregeld is, en wat nog **organisatorisch** geregeld moet worden — dat laatste vereist accounttoegang die niet vanuit de code te regelen is.
+
+**Wie raakt de data aan:**
+- **Supabase** — database, auth en bestandsopslag. Data-verwerker.
+- **Anthropic (Claude API)** — documentinhoud wordt gestuurd voor classificatie (`src/lib/documenten/classificeer.ts`) en rapportgeneratie (`src/lib/rapportage/genereer.ts`). Data-verwerker, en noodzakelijk voor de kernfunctie van de app.
+- **Vercel** — hosting/runtime. Verwerkt requests, slaat zelf geen documentinhoud op (die gaat rechtstreeks tussen de app-server, Supabase Storage en de Claude API).
+- **Geen andere derde partijen** — geverifieerd (2026-08-12): geen analytics/tracking-dependencies in `package.json`, geen logging van documentinhoud, geen onverwachte externe API-aanroepen in de codebase.
+- **Microsoft Graph/Entra ID** (`src/auth.ts`, `/api/auth/*`) staat in de code maar is **niet actief** — geen Azure-app-registratie, geen credentials ingesteld, wordt dus niet aangeroepen.
+
+**Wat Anthropic met de data doet (geverifieerd via de officiële documentatie op [privacy.claude.com](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training) en [platform.claude.com](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention)):**
+- Standaard traint Anthropic **niet** op data via de commerciële API — alleen als er expliciet feedback wordt gegeven via duim omhoog/omlaag-knoppen (die knoppen zitten niet in deze app, dus dit pad wordt nooit geraakt).
+- Deze app gebruikt uitsluitend API-features die in aanmerking komen voor **Zero Data Retention (ZDR)**: de Messages API, tool-use/structured outputs, PDF-ondersteuning, prompt caching en het model `claude-opus-5` (geen "Covered Model" dat 30-dagen-retentie vereist). Bewust géén Files API, Batch API of code execution — die zijn namelijk niet ZDR-eligible.
+- **ZDR is geen standaardinstelling** — moet per organisatie worden aangevraagd bij Anthropic Sales. Zonder ZDR geldt Anthropic's normale (kortdurende, niet-voor-training) bewaarbeleid.
+- Zelfs onder ZDR: content die door Anthropic's trust-and-safety-systemen gemarkeerd wordt, kan tot 2 jaar bewaard blijven — een branchebrede uitzondering voor misbruikbestrijding, niet iets dat wij kunnen uitschakelen.
+
+**Al gedaan:**
+- Codebase-audit op ongewenste dataflows (analytics, logging, externe aanroepen) — niets gevonden.
+- Next.js' anonieme CLI-telemetrie uitgeschakeld (`NEXT_TELEMETRY_DISABLED=1`).
+
+**Nog te regelen (accounttoegang nodig die niet vanuit de code te regelen is):**
+1. **Zero Data Retention aanvragen bij Anthropic** via [claude.com/contact-sales](https://claude.com/contact-sales) — de belangrijkste stap; alle Claude-aanroepen in deze app zijn al ZDR-eligible, dus dit sluit de grootste blootstelling.
+2. **Bevestigen dat het Anthropic-account onder de Commercial Terms of Service valt** (niet een persoonlijk/consumer-gekoppelde sleutel) — de DPA met SCC's wordt dan automatisch meegenomen.
+3. **Supabase-DPA en projectregio controleren** (dashboard → Organization settings) — met name of het project in een EU-regio draait.
+4. **Vercel's DPA controleren** (Pro/Enterprise-plannen bieden die doorgaans).
+5. **`NEXT_TELEMETRY_DISABLED=1` toevoegen aan Vercel's environment variables** zodat het ook in productie geldt (lokaal al gezet in `.env.local`).
+
+**Wat "nooit bij derden" hier concreet betekent:** de kernfunctie van de app (documentclassificatie, rapportgeneratie) draait op de Claude API — dat is per definitie een externe verwerker, net als Supabase voor opslag. Volledig zonder externe verwerking zou betekenen dat de AI-functies niet meer werken. "Dichttimmeren" betekent hier: geen verwerkers buiten wat strikt nodig is (bevestigd: alleen Supabase + Anthropic + Vercel-hosting), en voor die verwerkers de sterkst beschikbare garanties regelen (ZDR, DPA's) — dat laatste is aan jou, niet vanuit de code af te dwingen.
+
 ## Setup
 
 1. `npm install`
@@ -104,7 +134,7 @@ De eerste gebruiker moet handmatig worden aangemaakt (bv. via Supabase dashboard
 - Geen limiet/waarschuwing bij zeer grote of zeer veel documenten (Claude API-limiet: 32 MB per request, 600 pagina's).
 - **Documentclassificatie is volledig automatisch, geen controlestap** — een geüpload bestand wordt direct als categorie/vinkje + metadata opgeslagen zonder dat de bedrijfskundige de AI-classificatie eerst ziet/goedkeurt (bewuste keuze). Een verkeerd geclassificeerd document kan wel verwijderd en opnieuw geüpload worden, maar een foutieve automatische aanvulling van bijv. het KvK-nummer valt alleen op bij handmatige controle.
 - **Geen manier om een zaak- of ondernemingsveld handmatig te corrigeren** — alleen documenten uploaden/verwijderen; als de classificatie een fout KvK-nummer/oprichtingsdatum invult, is er geen bewerkformulier om dat recht te zetten (wel op te lossen door het brondocument te verwijderen en de juiste versie opnieuw te uploaden, als dat het probleem was).
-- AVG/compliance: Data Processing Agreement met Anthropic nog te regelen gezien de gevoeligheid van de documenten (financiële en persoonsgegevens) — extra relevant nu élk geüpload document (niet alleen bij rapportgeneratie) naar de Claude API gaat voor classificatie.
+- AVG/compliance — zie de volledige uitwerking in "Gegevensverwerking en privacy" hierboven; met name **Zero Data Retention bij Anthropic aanvragen** staat nog open, dat is de belangrijkste openstaande actie.
 - Echte historische rapportages (i.p.v. het generieke structuursjabloon) nog niet als few-shot-referentie gekoppeld — zou de stijlgetrouwheid verbeteren.
 - Geen vergelijking tussen versies (diff/wat is er veranderd) — je kunt alle versies los bekijken, maar niet naast elkaar.
 - Microsoft Entra ID/Graph-koppeling (automatisch documenten ophalen) staat nog los — token-refresh is ook niet geïmplementeerd in `src/auth.ts`.
