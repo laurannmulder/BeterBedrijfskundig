@@ -1,8 +1,10 @@
 // Structuursjabloon voor de bedrijfskundige rapportage. Gebaseerd op het
-// doornemen van twee echte voorbeeldrapportages (één BV met holdingstructuur,
-// één eenmanszaak met een apart gemist project) — dit bevat alleen de
-// generieke opbouw/structuur/lay-out, geen cliëntgegevens. De brondocumenten
-// zijn na het afleiden van deze structuur niet bewaard.
+// kantoor-eigen blanco formatdocument ("Format BEDRIJFSKUNDIGE RAPPORTAGE",
+// een placeholder-sjabloon zonder cliëntgegevens — de gezaghebbende bron) én
+// het doornemen van twee echte voorbeeldrapportages (één BV met
+// holdingstructuur, één eenmanszaak met een apart gemist project). Dit
+// bevat alleen de generieke opbouw/structuur/lay-out, geen cliëntgegevens.
+// De brondocumenten zijn na het afleiden van deze structuur niet bewaard.
 export const RAPPORTAGE_SJABLOON = `
 Volg deze exacte lay-out (structuur, koppen, paragraafnummering en volgorde) — dit is de huisstijl van het kantoor:
 
@@ -22,17 +24,23 @@ Vul alleen in wat daadwerkelijk bekend is uit de aangeleverde gegevens/documente
     - Hoe zou het bedrijf zijn vergaan als het ongeval niet had plaatsgevonden (would-be)?
     - Welke invloed heeft de uitval van betrokkene gehad op het resultaat van het bedrijf?
     - Wat is het verlies aan verdienvermogen (VAV), rekening houdend met doorlopende kosten?
-  1.3 Onderzoeksactiviteiten — dossierstudie, raadplegen KvK, beoordeling aangeleverde documenten.
+  1.3 Onderzoeksactiviteiten — standaard als opsomming: Voorbereiding/dossierstudie; Bezoek aan en gesprek met betrokkene (tenzij uit de stukken blijkt dat dit niet heeft plaatsgevonden — dan weglaten of expliciet benoemen dat dit nog moet gebeuren); Raadplegen Kamer van Koophandel; Internet, diverse websites. Voeg een voetnoot toe bij deze paragraafkop met de tekst: "Bij het onderzoek en de bijbehorende berekeningen is afgerond op hele getallen. Daarom kan het voorkomen dat totaaltellingen door deze afrondingen licht afwijken. Er is getracht dit zoveel mogelijk te voorkomen."
 
 2. BEDRIJFSKUNDIGE GEGEVENS
   Open met: "Vanuit de registers van de Kamer van Koophandel (KvK) is de volgende informatie ontleend. (Gegevens zijn vervaardigd op [datum, of 'onbekend'])."
   Behandel daarna per onderneming afzonderlijk (ondernemingsnaam als subkopje): inschrijvingsdatum KvK, KvK-nummer, handelsnaam/namen, rechtsvorm, activiteiten als opsomming met SBI-code(s) indien bekend, aantal werkzame personen. Bij een holdingstructuur (een onderneming die aandeelhouder is van een andere): benoem expliciet het aandeelhouderspercentage en de relatie tussen de ondernemingen.
 
 3. FINANCIËLE ANALYSE ONDERNEMING VOORAFGAAND AAN HET ONGEVAL
-  Bespreek de winst- en verliesrekening(en) van de jaren vóór het ongeval: ontwikkeling omzet, kostprijs omzet, belangrijkste kostenposten, nettoresultaat en de trend daarin.
+  Subkop "Winst- en verliesrekening": bespreek de winst- en verliesrekening(en) van de jaren vóór het ongeval — ontwikkeling omzet, kostprijs omzet, belangrijkste kostenposten, nettoresultaat en de trend daarin.
+  Subkop "Balans" (alleen als er balansgegevens zijn aangeleverd — anders expliciet benoemen dat deze ontbreken en dat de balansanalyse daarom niet uitgevoerd kan worden, in plaats van de subkop over te slaan): leg kort uit dat de activazijde de bezittingen bevat en de passivazijde het eigen vermogen en de schulden. Beoordeel de balans aan de hand van twee kengetallen, elk met een eigen kopje:
+  - "Solvabiliteit": eigen vermogen / totaal vermogen. Norm: hoger dan 25% wordt als gezond beschouwd. Benoem expliciet of de solvabiliteit boven of onder de norm ligt en wat dat betekent (te lage solvabiliteit = weinig buffer voor financiële tegenslagen, risico voor financiële stabiliteit/kredietwaardigheid/continuïteit).
+  - "Current ratio": (voorraden + vorderingen + liquide middelen) / kort vreemd vermogen. Norm: hoger dan 1 betekent een goede liquiditeit (op korte termijn aan verplichtingen kunnen voldoen). Benoem expliciet of de current ratio boven of onder de norm ligt.
+  Voeg bij deze twee kengetallen een voetnoot toe met de standaarddefinitie: bij solvabiliteit "De solvabiliteit geeft de verhouding aan van het eigen vermogen ten opzichte van het vreemde vermogen (de leningen binnen de onderneming). De verhouding geeft aan of de onderneming de schulden op lange termijn kan voldoen."; bij current ratio "De current ratio is een kengetal dat de liquiditeit van de onderneming weergeeft. Het geeft aan in hoeverre de onderneming in staat is om op korte termijn verplichtingen te voldoen."
+  Sluit af met een kort "Resumé" dat solvabiliteit en current ratio samen duidt.
+  Subkop "Aangiften inkomstenbelasting": bespreek kort de aangiften IB van betrokkene over dezelfde jaren, ter aanvulling op de ondernemingscijfers.
 
 4. FINANCIËLE ANALYSE ONDERNEMING NA HET ONGEVAL
-  Zelfde analyse voor de jaren na het ongeval. Besteed expliciet aandacht aan kosten die doorlopen ondanks omzetdaling (afschrijvingen, vaste lasten, verzekeringen e.d.).
+  Zelfde opbouw en subkoppen als hoofdstuk 3 (Winst- en verliesrekening, Balans met solvabiliteit/current ratio/Resumé, Aangiften inkomstenbelasting), nu voor de jaren na het ongeval. Besteed expliciet aandacht aan kosten die doorlopen ondanks omzetdaling (afschrijvingen, vaste lasten, verzekeringen e.d.).
 
 5. WOULD-BE-HOOFDSTUK — bepaal eerst of dit een eigen hoofdstuk wordt of onderdeel van hoofdstuk "Beantwoording vragen"
   De would-be-reconstructie (de omzet/het resultaat zoals dat zonder ongeval te verwachten was, gebaseerd op de historische trend vóór het ongeval, of op een specifiek aantoonbaar project/traject dat door het ongeval is misgelopen; benoem expliciet welke aannames zijn gemaakt en waarom — dit is een oordeelsvormend onderdeel, geen zuivere rekensom) krijgt:
