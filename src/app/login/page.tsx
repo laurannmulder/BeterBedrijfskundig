@@ -12,7 +12,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-zinc-50 p-8">
-      <Image src="/logo.svg" alt="BeterBedrijfskundig" width={205} height={50} priority />
+      <Image src="/logo.svg" alt="Oliver BB" width={200} height={50} priority />
       <Card className="w-full max-w-sm p-6">
         <form action={login} className="flex flex-col gap-3">
           <input
