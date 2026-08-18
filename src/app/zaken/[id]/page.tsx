@@ -232,6 +232,10 @@ export default async function ZaakDetailPage({
 
           {error && <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>}
 
+          <Card className="flex flex-col items-center gap-4 p-6">
+            <GenereerRapportForm zaakId={id} />
+          </Card>
+
           <section className="flex flex-col gap-3">
             <div>
               <h2 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
@@ -319,11 +323,6 @@ export default async function ZaakDetailPage({
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-20 lg:w-72">
-          <Card className="flex flex-col gap-4 p-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Rapport genereren</h2>
-            <GenereerRapportForm zaakId={id} />
-          </Card>
-
           <Card className="flex flex-col gap-4 p-5">
             <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
               <UploadCloud className="h-3.5 w-3.5" />
