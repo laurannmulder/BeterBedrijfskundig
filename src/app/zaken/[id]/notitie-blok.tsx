@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react'
 import { inputClass } from '@/components/ui'
 import { wijzigNotitie, verwijderNotitie } from './actions'
 
@@ -10,8 +10,15 @@ interface Notitie {
   tekst: string
 }
 
+// Boven deze lengte (of bij meerdere regels) tonen we standaard een
+// compacte, ingeklapte preview i.p.v. de hele tekst — bv. een geplakte
+// opdrachtbrief maakt anders het hele blok onnodig hoog.
+const INKLAP_DREMPEL = 140
+
 export function NotitieBlok({ zaakId, notitie }: { zaakId: string; notitie: Notitie }) {
   const [bewerken, setBewerken] = useState(false)
+  const isLang = notitie.tekst.length > INKLAP_DREMPEL || notitie.tekst.includes('\n')
+  const [uitgeklapt, setUitgeklapt] = useState(!isLang)
 
   if (bewerken) {
     return (
@@ -40,7 +47,26 @@ export function NotitieBlok({ zaakId, notitie }: { zaakId: string; notitie: Noti
 
   return (
     <div className="flex items-start justify-between gap-3 px-4 py-3">
-      <p className="whitespace-pre-wrap text-sm text-zinc-800">{notitie.tekst}</p>
+      {isLang ? (
+        <button
+          type="button"
+          onClick={() => setUitgeklapt((v) => !v)}
+          className="flex min-w-0 flex-1 items-start gap-1.5 text-left"
+        >
+          {uitgeklapt ? (
+            <ChevronUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+          ) : (
+            <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+          )}
+          <span
+            className={`text-sm text-zinc-800 ${uitgeklapt ? 'whitespace-pre-wrap' : 'truncate whitespace-nowrap'}`}
+          >
+            {notitie.tekst}
+          </span>
+        </button>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm text-zinc-800">{notitie.tekst}</p>
+      )}
       <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
