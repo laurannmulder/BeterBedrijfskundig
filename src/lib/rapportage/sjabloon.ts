@@ -18,7 +18,10 @@ Vul alleen in wat daadwerkelijk bekend is uit de aangeleverde gegevens/documente
 
 1. ALGEMEEN
   1.1 Aanleiding — wie is betrokkene, wanneer en waardoor is het ongeval ontstaan, wie verzoekt de rapportage.
-  1.2 Vraagstelling — de onderzoeksvragen, standaard:
+  1.2 Vraagstelling — controleer EERST of de opdrachtbrief (of andere correspondentie van verzekeraar/belangenbehartiger) een expliciete opsomming van onderwerpen/vragen bevat waaraan aandacht besteed moet worden (vaak ingeleid met een zin als "Wij verzoeken u daarbij in ieder geval aandacht te besteden aan de volgende onderwerpen:"). Is die er:
+    - Neem DIE onderwerpen over als de onderzoeksvragen — verwoord ze zo nodig als volledige vraagzinnen, maar wijzig de inhoud/strekking niet en laat er geen weg (dit is de daadwerkelijke opdracht van de opdrachtgever, geen invuloefening).
+    - Vul, als een van de standaardvragen hieronder inhoudelijk niet al gedekt wordt door de expliciet opgevraagde onderwerpen, die ontbrekende standaardvraag/vragen aan het eind aanvullend toe (bv. het verlies aan verdienvermogen wordt zelden letterlijk uitgevraagd, maar hoort wel standaard in dit type rapportage thuis).
+    Is er geen expliciete opsomming in de opdrachtbrief/correspondentie te vinden, gebruik dan de standaard onderzoeksvragen:
     - Hoe stond het bedrijf van betrokkene er in bedrijfskundige/bedrijfseconomische zin voor op datum ongeval?
     - Hoe staat het bedrijf er nu voor?
     - Hoe zou het bedrijf zijn vergaan als het ongeval niet had plaatsgevonden (would-be)?
