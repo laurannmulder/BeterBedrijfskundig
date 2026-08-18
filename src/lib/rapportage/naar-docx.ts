@@ -21,6 +21,7 @@ import {
   HorizontalPositionRelativeFrom,
   VerticalPositionRelativeFrom,
   TextWrappingType,
+  type IBorderOptions,
 } from 'docx'
 import {
   VOORPAGINA_BRIEFHOOFD_JPEG,
@@ -105,9 +106,61 @@ function keurmerkParagraaf(): Paragraph {
   })
 }
 
-// Matcht het lettertype van de rapportageweergave in de app (body font-family: Arial, Helvetica, sans-serif).
-const LETTERTYPE = 'Arial'
-const TEKSTKLEUR = '171717'
+// Lettertype/kleuren 1-op-1 overgenomen uit het kantoor-eigen blanco
+// formatdocument (styles.xml: docDefaults + Kop1/Kop2-stijlen, en de directe
+// run-opmaak in document.xml) — niet de Arial-body-styling van de
+// in-app-preview, die staat los van de daadwerkelijke huisstijl.
+const LETTERTYPE = 'Verdana'
+const KOPKLEUR = '702372'
+
+// De vier vaste omslagblok-koppen (zie sjabloon.ts) — geen markdown-tabel
+// meer, maar een vetgedrukte kopregel + platte veldregels in een kader met
+// gestippelde paarse rand, exact zoals het origineel (word/document.xml:
+// <w:tblBorders><w:top w:val="dotted" ... w:color="702372"/>...).
+const OMSLAGBLOK_KOPPEN = [
+  'Persoonlijke gegevens betrokkene:',
+  'Gegevens verzekeraar:',
+  'Gegevens belangenbehartiger:',
+  'Gegevens bedrijfskundige:',
+]
+
+function isOmslagblokKop(node: RootContent): string | null {
+  if (node.type !== 'paragraph' || node.children.length !== 1) return null
+  const kind = node.children[0]
+  if (kind.type !== 'strong') return null
+  const tekst = kind.children
+    .map((c) => (c.type === 'text' ? c.value : ''))
+    .join('')
+    .trim()
+  return OMSLAGBLOK_KOPPEN.includes(tekst) ? tekst : null
+}
+
+function omslagblokTabel(kop: string, veldParagrafen: Paragraph[]): Table {
+  const kader: IBorderOptions = { style: BorderStyle.DOTTED, size: 2, color: KOPKLEUR }
+
+  return new Table({
+    width: { size: TABEL_BREEDTE_DXA, type: WidthType.DXA },
+    columnWidths: [TABEL_BREEDTE_DXA],
+    borders: { top: kader, bottom: kader, left: kader, right: kader },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: TABEL_BREEDTE_DXA, type: WidthType.DXA },
+            margins: { top: 100, bottom: 100, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                spacing: { after: 0 },
+                children: [new TextRun({ text: kop, bold: true, color: KOPKLEUR, font: LETTERTYPE })],
+              }),
+              ...veldParagrafen,
+            ],
+          }),
+        ],
+      }),
+    ],
+  })
+}
 
 function inlineNaarRuns(
   nodes: PhrasingContent[],
@@ -206,7 +259,27 @@ function lijstNaarDocx(node: MdList): Paragraph[] {
 function blokkenNaarDocx(nodes: RootContent[]): (Paragraph | Table)[] {
   const elementen: (Paragraph | Table)[] = []
 
-  for (const node of nodes) {
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]
+    const omslagblokKop = isOmslagblokKop(node)
+
+    if (omslagblokKop) {
+      const veldParagrafen: Paragraph[] = []
+      let j = i + 1
+      while (j < nodes.length && nodes[j].type === 'paragraph' && !isOmslagblokKop(nodes[j])) {
+        const veldNode = nodes[j]
+        if (veldNode.type === 'paragraph') {
+          veldParagrafen.push(
+            new Paragraph({ spacing: { after: 0 }, children: inlineNaarRuns(veldNode.children) })
+          )
+        }
+        j += 1
+      }
+      elementen.push(omslagblokTabel(omslagblokKop, veldParagrafen))
+      i = j - 1
+      continue
+    }
+
     switch (node.type) {
       case 'heading':
         elementen.push(
@@ -262,29 +335,42 @@ export async function genereerDocxBuffer(markdown: string): Promise<Buffer> {
   const doc = new Document({
     styles: {
       default: {
+        // Standaard/body-tekst: Verdana 10pt zwart (docDefaults + directe
+        // run-opmaak in het origineel — géén thema-Calibri).
         document: {
-          run: { font: LETTERTYPE, size: 22, color: TEKSTKLEUR },
+          run: { font: LETTERTYPE, size: 20, color: '000000' },
           paragraph: { spacing: { after: 200 } },
         },
+        // h1 in de markdown = uitsluitend de titelregel "BEDRIJFSKUNDIGE
+        // RAPPORTAGE" (zie sjabloon.ts) — Verdana vet paars 20pt, exacte
+        // directe opmaak van die ene titel-run in het origineel.
         heading1: {
-          run: { font: LETTERTYPE, size: 38, bold: true, color: TEKSTKLEUR },
-          paragraph: { spacing: { before: 480, after: 240 } },
+          run: { font: LETTERTYPE, size: 40, bold: true, color: KOPKLEUR },
+          paragraph: { spacing: { before: 240, after: 240 } },
         },
+        // h2 = genummerde/hoofdstukkoppen — komt overeen met Word-stijl
+        // "Kop1" in het origineel: Verdana vet paars 10pt.
         heading2: {
-          run: { font: LETTERTYPE, size: 30, bold: true, color: TEKSTKLEUR },
-          paragraph: { spacing: { before: 400, after: 200 } },
+          run: { font: LETTERTYPE, size: 20, bold: true, color: KOPKLEUR },
+          paragraph: { spacing: { before: 240, after: 40 } },
         },
+        // h3 = genummerde subparagrafen (1.1/1.2/1.3) — Word-stijl "Kop2":
+        // Verdana paars 10pt, NIET vet.
         heading3: {
-          run: { font: LETTERTYPE, size: 26, bold: true, color: TEKSTKLEUR },
-          paragraph: { spacing: { before: 320, after: 160 } },
+          run: { font: LETTERTYPE, size: 20, bold: false, color: KOPKLEUR },
+          paragraph: { spacing: { before: 40, after: 40 } },
         },
+        // h4/h5 horen niet meer voor te komen (sjabloon.ts instrueert
+        // vetgedrukte platte tekst i.p.v. een markdown-kop voor alle overige
+        // subkopjes) — dit is uitsluitend een vangnet, gestyled als gewone
+        // vette body-tekst, niet als "echte" kop.
         heading4: {
-          run: { font: LETTERTYPE, size: 24, bold: true, color: TEKSTKLEUR },
-          paragraph: { spacing: { before: 280, after: 120 } },
+          run: { font: LETTERTYPE, size: 20, bold: true, color: '000000' },
+          paragraph: { spacing: { before: 120, after: 40 } },
         },
         heading5: {
-          run: { font: LETTERTYPE, size: 22, bold: true, color: TEKSTKLEUR },
-          paragraph: { spacing: { before: 240, after: 120 } },
+          run: { font: LETTERTYPE, size: 20, bold: true, color: '000000' },
+          paragraph: { spacing: { before: 120, after: 40 } },
         },
       },
     },

@@ -6,15 +6,21 @@
 // bevat alleen de generieke opbouw/structuur/lay-out, geen cliëntgegevens.
 // De brondocumenten zijn na het afleiden van deze structuur niet bewaard.
 export const RAPPORTAGE_SJABLOON = `
-Volg deze exacte lay-out (structuur, koppen, paragraafnummering en volgorde) — dit is de huisstijl van het kantoor:
+Volg deze exacte lay-out (structuur, koppen, paragraafnummering en volgorde) — dit is de huisstijl van het kantoor.
 
-OMSLAG / GEGEVENSBLOK (vóór hoofdstuk 1, geen paragraafnummer)
-Begin met de titelregel "BEDRIJFSKUNDIGE RAPPORTAGE", gevolgd door vier gegevensblokken, elk als aparte markdown-tabel met twee kolommen (label / waarde):
-- "Persoonlijke gegevens betrokkene": Naam, Adres, Postcode, Woonplaats, E-mail, Telefoon, Geboortedatum, Datum schade/ongeval.
-- "Gegevens verzekeraar": Verzekeraar, Naam (contactpersoon), E-mail, Kenmerk.
-- "Gegevens belangenbehartiger": Letselschadebureau, Naam, E-mail, Kenmerk.
-- "Gegevens bedrijfskundige": Bezoekdatum, Rapportagedatum, Rapporteur, E-mail, Telefoon, Dossiernummer.
-Vul alleen in wat daadwerkelijk bekend is uit de aangeleverde gegevens/documenten; onbekende velden krijgen "onbekend" — verzin nooit een naam, e-mailadres of kenmerk.
+MARKDOWN-KOPPENNIVEAUS — strikt volgen, dit bepaalt de opmaak in het uiteindelijke Word-document:
+- "#" (h1): uitsluitend de titelregel "BEDRIJFSKUNDIGE RAPPORTAGE", één keer, aan het begin.
+- "##" (h2): uitsluitend de genummerde hoofdstukken (bv. "## 1. ALGEMEEN") en de ongenummerde hoofdstukken op hetzelfde niveau ("## BEANTWOORDING VRAGEN", "## VOORTGANG", "## BIJLAGEN"). Let op: de ondertekening (zie verderop) krijgt GEEN kop.
+- "###" (h3): uitsluitend de genummerde subparagrafen binnen hoofdstuk 1 (1.1, 1.2, 1.3).
+- Alle overige subkopjes (bv. "Winst- en verliesrekening", "Balans", "Solvabiliteit", een ondernemingsnaam als subkopje in hoofdstuk 2) zijn GEEN markdown-kop — schrijf ze als **vetgedrukte tekst** op een eigen regel, gevolgd door een lege regel en dan de bijbehorende inhoud.
+
+OMSLAG / GEGEVENSBLOK (vóór hoofdstuk 1, geen paragraafnummer, geen markdown-kop)
+Begin met de titelregel (h1) "BEDRIJFSKUNDIGE RAPPORTAGE", gevolgd door vier gegevensblokken. Elk gegevensblok is GEEN tabel — schrijf een vetgedrukte kopregel gevolgd door een lege regel en dan de velden, elk op een eigen regel in de vorm "Label: waarde" (dus platte tekst, geen aparte "Label"/"Waarde"-koppen, geen markdown-tabelsyntax met | en ---):
+- **Persoonlijke gegevens betrokkene:** Naam, Adres, Postcode, Woonplaats, E-mail, Telefoon, Geboortedatum, Datum schade/ongeval.
+- **Gegevens verzekeraar:** Verzekeraar, Naam (contactpersoon), E-mail, Kenmerk.
+- **Gegevens belangenbehartiger:** Letselschadebureau, Naam, E-mail, Kenmerk.
+- **Gegevens bedrijfskundige:** Bezoekdatum, Rapportagedatum, Rapporteur, E-mail, Telefoon, Dossiernummer.
+Zet elk veld op een eigen regel (lege regel ertussen, dus elk veld een eigen alinea). Vul alleen in wat daadwerkelijk bekend is uit de aangeleverde gegevens/documenten; onbekende velden krijgen "onbekend" — verzin nooit een naam, e-mailadres of kenmerk.
 
 1. ALGEMEEN
   1.1 Aanleiding — wie is betrokkene, wanneer en waardoor is het ongeval ontstaan, wie verzoekt de rapportage.
@@ -31,19 +37,19 @@ Vul alleen in wat daadwerkelijk bekend is uit de aangeleverde gegevens/documente
 
 2. BEDRIJFSKUNDIGE GEGEVENS
   Open met: "Vanuit de registers van de Kamer van Koophandel (KvK) is de volgende informatie ontleend. (Gegevens zijn vervaardigd op [datum, of 'onbekend'])."
-  Behandel daarna per onderneming afzonderlijk (ondernemingsnaam als subkopje): inschrijvingsdatum KvK, KvK-nummer, handelsnaam/namen, rechtsvorm, activiteiten als opsomming met SBI-code(s) indien bekend, aantal werkzame personen. Bij een holdingstructuur (een onderneming die aandeelhouder is van een andere): benoem expliciet het aandeelhouderspercentage en de relatie tussen de ondernemingen.
+  Behandel daarna per onderneming afzonderlijk (ondernemingsnaam **vetgedrukt** op een eigen regel, geen markdown-kop): inschrijvingsdatum KvK, KvK-nummer, handelsnaam/namen, rechtsvorm, activiteiten als opsomming met SBI-code(s) indien bekend, aantal werkzame personen. Bij een holdingstructuur (een onderneming die aandeelhouder is van een andere): benoem expliciet het aandeelhouderspercentage en de relatie tussen de ondernemingen.
 
 3. FINANCIËLE ANALYSE ONDERNEMING VOORAFGAAND AAN HET ONGEVAL
-  Subkop "Winst- en verliesrekening": bespreek de winst- en verliesrekening(en) van de jaren vóór het ongeval — ontwikkeling omzet, kostprijs omzet, belangrijkste kostenposten, nettoresultaat en de trend daarin.
-  Subkop "Balans" (alleen als er balansgegevens zijn aangeleverd — anders expliciet benoemen dat deze ontbreken en dat de balansanalyse daarom niet uitgevoerd kan worden, in plaats van de subkop over te slaan): leg kort uit dat de activazijde de bezittingen bevat en de passivazijde het eigen vermogen en de schulden. Beoordeel de balans aan de hand van twee kengetallen, elk met een eigen kopje:
+  **Winst- en verliesrekening** (vetgedrukt, geen markdown-kop): bespreek de winst- en verliesrekening(en) van de jaren vóór het ongeval — ontwikkeling omzet, kostprijs omzet, belangrijkste kostenposten, nettoresultaat en de trend daarin.
+  **Balans** (vetgedrukt, geen markdown-kop; alleen als er balansgegevens zijn aangeleverd — anders expliciet benoemen dat deze ontbreken en dat de balansanalyse daarom niet uitgevoerd kan worden, in plaats van dit onderdeel over te slaan): leg kort uit dat de activazijde de bezittingen bevat en de passivazijde het eigen vermogen en de schulden. Beoordeel de balans aan de hand van twee kengetallen, elk **vetgedrukt** (geen markdown-kop) op een eigen regel:
   - "Solvabiliteit": eigen vermogen / totaal vermogen. Norm: hoger dan 25% wordt als gezond beschouwd. Benoem expliciet of de solvabiliteit boven of onder de norm ligt en wat dat betekent (te lage solvabiliteit = weinig buffer voor financiële tegenslagen, risico voor financiële stabiliteit/kredietwaardigheid/continuïteit).
   - "Current ratio": (voorraden + vorderingen + liquide middelen) / kort vreemd vermogen. Norm: hoger dan 1 betekent een goede liquiditeit (op korte termijn aan verplichtingen kunnen voldoen). Benoem expliciet of de current ratio boven of onder de norm ligt.
   Voeg bij deze twee kengetallen een voetnoot toe met de standaarddefinitie: bij solvabiliteit "De solvabiliteit geeft de verhouding aan van het eigen vermogen ten opzichte van het vreemde vermogen (de leningen binnen de onderneming). De verhouding geeft aan of de onderneming de schulden op lange termijn kan voldoen."; bij current ratio "De current ratio is een kengetal dat de liquiditeit van de onderneming weergeeft. Het geeft aan in hoeverre de onderneming in staat is om op korte termijn verplichtingen te voldoen."
-  Sluit af met een kort "Resumé" dat solvabiliteit en current ratio samen duidt.
-  Subkop "Aangiften inkomstenbelasting": bespreek kort de aangiften IB van betrokkene over dezelfde jaren, ter aanvulling op de ondernemingscijfers.
+  Sluit af met een kort **Resumé** (vetgedrukt, geen markdown-kop) dat solvabiliteit en current ratio samen duidt.
+  **Aangiften inkomstenbelasting** (vetgedrukt, geen markdown-kop): bespreek kort de aangiften IB van betrokkene over dezelfde jaren, ter aanvulling op de ondernemingscijfers.
 
 4. FINANCIËLE ANALYSE ONDERNEMING NA HET ONGEVAL
-  Zelfde opbouw en subkoppen als hoofdstuk 3 (Winst- en verliesrekening, Balans met solvabiliteit/current ratio/Resumé, Aangiften inkomstenbelasting), nu voor de jaren na het ongeval. Besteed expliciet aandacht aan kosten die doorlopen ondanks omzetdaling (afschrijvingen, vaste lasten, verzekeringen e.d.).
+  Zelfde opbouw en subkoppen (steeds vetgedrukte tekst, geen markdown-kop) als hoofdstuk 3 (Winst- en verliesrekening, Balans met Solvabiliteit/Current ratio/Resumé, Aangiften inkomstenbelasting), nu voor de jaren na het ongeval. Besteed expliciet aandacht aan kosten die doorlopen ondanks omzetdaling (afschrijvingen, vaste lasten, verzekeringen e.d.).
 
 5. WOULD-BE-HOOFDSTUK — bepaal eerst of dit een eigen hoofdstuk wordt of onderdeel van hoofdstuk "Beantwoording vragen"
   De would-be-reconstructie (de omzet/het resultaat zoals dat zonder ongeval te verwachten was, gebaseerd op de historische trend vóór het ongeval, of op een specifiek aantoonbaar project/traject dat door het ongeval is misgelopen; benoem expliciet welke aannames zijn gemaakt en waarom — dit is een oordeelsvormend onderdeel, geen zuivere rekensom) krijgt:
@@ -59,8 +65,8 @@ BEANTWOORDING VRAGEN (hoofdstuk 5 of 6, zie hierboven)
 VOORTGANG (laatste genummerde hoofdstuk, hoofdstuk 6 of 7, zie hierboven)
   Dit hoofdstuk gaat over het vervolgproces, NIET over ontbrekende documenten. Gebruik als basis: "Het conceptrapport wordt eerst naar betrokkene verzonden en ter goedkeuring voorgelegd. Belangenbehartiger en verzekeraar worden tijdens het traject gelijktijdig op de hoogte gehouden. Deze rapportage zal gelijktijdig worden verstuurd aan betrokkene, de verzekeraar en de belangenbehartiger." Voeg daarna, als korte losse alinea, wél kort op basis van vakkundig oordeel toe welke informatie nog ontbreekt of welke openstaande vragen er zijn — maar dit blijft een korte alinea, geen hoofdmoot van dit hoofdstuk.
 
-ONDERTEKENING (na het laatste genummerde hoofdstuk, geen paragraafnummer)
-Sluit af met de naam van de bedrijfskundige, gevolgd door "Bedrijfskundige" en de naam van het bureau — elk op een eigen regel. Vul dit alleen in als het bekend is uit de aangeleverde gegevens; anders "[AANNAME: naam/functie/bureau bedrijfskundige]".
+ONDERTEKENING (na het laatste genummerde hoofdstuk — GEEN kop/label "Ondertekening" printen, gewoon direct de onderstaande regels)
+Sluit af met de naam van de bedrijfskundige, gevolgd door "Bedrijfskundige" en de naam van het bureau — elk op een eigen regel, cursief (markdown *tekst*). Vul dit alleen in als het bekend is uit de aangeleverde gegevens; anders "[AANNAME: naam/functie/bureau bedrijfskundige]".
 
 BIJLAGEN (na de ondertekening, geen paragraafnummer)
 Sluit af met een genummerde lijst "Bijlage 1", "Bijlage 2" etc. van de stukken waarnaar in het rapport wordt verwezen. Meestal gaat dit om de financiële kernstukken (bv. "Bijlage 1 Winst- en verliesrekening(en) [jaren]", "Bijlage 2 Winst- en verliesrekening(en) in percentages t.o.v. de omzet", "Bijlage 3 Balans [onderneming] per [datum]"). Als de would-be-reconstructie op een specifiek project/traject is gebaseerd (zie hoofdstuk 5 hierboven), voeg dan aparte bijlagen toe die dat onderbouwen (bv. "Bijlage x Informatie project [naam/jaar]", "Bijlage x Gemiste omzet project [naam/jaar]", "Bijlage x Aanvullende informatie project [naam/jaar]", "Bijlage x Would-be uitwerking"). Neem uitsluitend bijlagen op die corresponderen met daadwerkelijk aangeleverde of in het rapport uitgewerkte stukken — verzin geen bijlagen die niet zijn aangeleverd of uitgewerkt.
