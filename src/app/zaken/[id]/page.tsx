@@ -158,61 +158,71 @@ export default async function ZaakDetailPage({
     <>
       <Header userEmail={user?.email} />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8 lg:flex-row lg:items-start">
-        <Card className="flex w-full shrink-0 flex-col gap-4 p-5 lg:sticky lg:top-20 lg:w-64">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Zaakgegevens</h2>
-          <dl className="flex flex-col gap-3 text-sm">
-            <div>
-              <dt className="text-xs text-zinc-400">Naam betrokkene</dt>
-              <dd className="text-zinc-900">{zaak.naam_betrokkene}</dd>
-            </div>
-            {ondernemingen?.map((onderneming) => (
-              <div key={onderneming.id} className="border-t border-zinc-100 pt-3">
-                <dt className="flex items-center gap-1.5 text-xs text-zinc-400">
-                  <Building2 className="h-3.5 w-3.5" />
-                  Onderneming
-                </dt>
-                <dd className="text-zinc-900">{onderneming.naam}</dd>
-                <dd className="mt-1 text-xs text-zinc-500">
-                  Opgericht: {onderneming.oprichtingsdatum ?? 'onbekend'}
-                </dd>
-                <dd className="text-xs text-zinc-500">KvK-nummer: {onderneming.kvk_nummer ?? 'onbekend'}</dd>
+        <div className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-20 lg:w-64">
+          <Card className="flex flex-col gap-4 p-5">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Zaakgegevens</h2>
+            <dl className="flex flex-col gap-3 text-sm">
+              <div>
+                <dt className="text-xs text-zinc-400">Naam betrokkene</dt>
+                <dd className="text-zinc-900">{zaak.naam_betrokkene}</dd>
               </div>
-            ))}
+              {ondernemingen?.map((onderneming) => (
+                <div key={onderneming.id} className="border-t border-zinc-100 pt-3">
+                  <dt className="flex items-center gap-1.5 text-xs text-zinc-400">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Onderneming
+                  </dt>
+                  <dd className="text-zinc-900">{onderneming.naam}</dd>
+                  <dd className="mt-1 text-xs text-zinc-500">
+                    Opgericht: {onderneming.oprichtingsdatum ?? 'onbekend'}
+                  </dd>
+                  <dd className="text-xs text-zinc-500">KvK-nummer: {onderneming.kvk_nummer ?? 'onbekend'}</dd>
+                </div>
+              ))}
+              <div className="border-t border-zinc-100 pt-3">
+                <dt className="text-xs text-zinc-400">Ongevalsdatum</dt>
+                <dd className="text-zinc-900">{zaak.ongevalsdatum ?? 'onbekend'}</dd>
+              </div>
+              <div className="border-t border-zinc-100 pt-3">
+                <dt className="text-xs text-zinc-400">Verzekeraar</dt>
+                <dd className="text-zinc-900">{zaak.verzekeraar_naam ?? 'onbekend'}</dd>
+                {zaak.verzekeraar_contactpersoon && (
+                  <dd className="mt-1 text-xs text-zinc-500">{zaak.verzekeraar_contactpersoon}</dd>
+                )}
+                {zaak.verzekeraar_kenmerk && (
+                  <dd className="text-xs text-zinc-500">Kenmerk: {zaak.verzekeraar_kenmerk}</dd>
+                )}
+              </div>
+              <div className="border-t border-zinc-100 pt-3">
+                <dt className="text-xs text-zinc-400">Belangenbehartiger</dt>
+                <dd className="text-zinc-900">{zaak.belangenbehartiger_bureau ?? 'onbekend'}</dd>
+                {zaak.belangenbehartiger_naam && (
+                  <dd className="mt-1 text-xs text-zinc-500">{zaak.belangenbehartiger_naam}</dd>
+                )}
+                {zaak.belangenbehartiger_kenmerk && (
+                  <dd className="text-xs text-zinc-500">Kenmerk: {zaak.belangenbehartiger_kenmerk}</dd>
+                )}
+              </div>
+              <div className="border-t border-zinc-100 pt-3">
+                <dt className="text-xs text-zinc-400">Aangemaakt op</dt>
+                <dd className="text-zinc-900">
+                  {new Date(zaak.created_at).toLocaleDateString('nl-NL', { dateStyle: 'medium' })}
+                </dd>
+              </div>
+            </dl>
             <div className="border-t border-zinc-100 pt-3">
-              <dt className="text-xs text-zinc-400">Ongevalsdatum</dt>
-              <dd className="text-zinc-900">{zaak.ongevalsdatum ?? 'onbekend'}</dd>
+              <VerwijderZaakForm zaakId={zaak.id} naamBetrokkene={zaak.naam_betrokkene} action={verwijderZaak} />
             </div>
-            <div className="border-t border-zinc-100 pt-3">
-              <dt className="text-xs text-zinc-400">Verzekeraar</dt>
-              <dd className="text-zinc-900">{zaak.verzekeraar_naam ?? 'onbekend'}</dd>
-              {zaak.verzekeraar_contactpersoon && (
-                <dd className="mt-1 text-xs text-zinc-500">{zaak.verzekeraar_contactpersoon}</dd>
-              )}
-              {zaak.verzekeraar_kenmerk && (
-                <dd className="text-xs text-zinc-500">Kenmerk: {zaak.verzekeraar_kenmerk}</dd>
-              )}
-            </div>
-            <div className="border-t border-zinc-100 pt-3">
-              <dt className="text-xs text-zinc-400">Belangenbehartiger</dt>
-              <dd className="text-zinc-900">{zaak.belangenbehartiger_bureau ?? 'onbekend'}</dd>
-              {zaak.belangenbehartiger_naam && (
-                <dd className="mt-1 text-xs text-zinc-500">{zaak.belangenbehartiger_naam}</dd>
-              )}
-              {zaak.belangenbehartiger_kenmerk && (
-                <dd className="text-xs text-zinc-500">Kenmerk: {zaak.belangenbehartiger_kenmerk}</dd>
-              )}
-            </div>
-            <div className="border-t border-zinc-100 pt-3">
-              <dt className="text-xs text-zinc-400">Aangemaakt op</dt>
-              <dd className="text-zinc-900">
-                {new Date(zaak.created_at).toLocaleDateString('nl-NL', { dateStyle: 'medium' })}
-              </dd>
-            </div>
-          </dl>
-          <div className="border-t border-zinc-100 pt-3">
-            <VerwijderZaakForm zaakId={zaak.id} naamBetrokkene={zaak.naam_betrokkene} action={verwijderZaak} />
-          </div>
-        </Card>
+          </Card>
+
+          <Card className="flex flex-col gap-4 p-5">
+            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+              <UploadCloud className="h-3.5 w-3.5" />
+              Documenten uploaden
+            </h2>
+            <UploadDocumentenForm zaakId={id} />
+          </Card>
+        </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           <PageHeader
@@ -221,20 +231,19 @@ export default async function ZaakDetailPage({
             title={zaak.naam_betrokkene}
             subtitle={zaak.dossiernummer ? `Dossier ${zaak.dossiernummer}` : undefined}
             actions={
-              !!aantalRapportages && (
-                <LinkButton href={`/zaken/${id}/rapportages`} variant="secondary" size="sm">
-                  <FileText className="h-3.5 w-3.5" />
-                  Rapportages ({aantalRapportages})
-                </LinkButton>
-              )
+              <>
+                {!!aantalRapportages && (
+                  <LinkButton href={`/zaken/${id}/rapportages`} variant="secondary" size="sm">
+                    <FileText className="h-3.5 w-3.5" />
+                    Rapportages ({aantalRapportages})
+                  </LinkButton>
+                )}
+                <GenereerRapportForm zaakId={id} />
+              </>
             }
           />
 
           {error && <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>}
-
-          <Card className="flex flex-col items-center gap-4 p-6">
-            <GenereerRapportForm zaakId={id} />
-          </Card>
 
           <section className="flex flex-col gap-3">
             <div>
@@ -320,16 +329,6 @@ export default async function ZaakDetailPage({
               </Card>
             </section>
           )}
-        </div>
-
-        <div className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-20 lg:w-72">
-          <Card className="flex flex-col gap-4 p-5">
-            <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              <UploadCloud className="h-3.5 w-3.5" />
-              Documenten uploaden
-            </h2>
-            <UploadDocumentenForm zaakId={id} />
-          </Card>
         </div>
       </main>
     </>

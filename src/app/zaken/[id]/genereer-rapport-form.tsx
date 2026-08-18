@@ -19,14 +19,16 @@ export function GenereerRapportForm({ zaakId }: { zaakId: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="contents">
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-6 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700 disabled:opacity-50"
+        // Zelfde formaat als de "Rapportages"-knop ernaast (LinkButton
+        // variant="secondary" size="sm"), maar in het groen van het logo.
+        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#12756A] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0f5f57] disabled:pointer-events-none disabled:opacity-50"
       >
-        <Sparkles className="h-4 w-4" />
-        {pending ? 'Bezig met genereren… (kan een minuut duren)' : 'Genereer rapport'}
+        <Sparkles className="h-3.5 w-3.5" />
+        {pending ? 'Bezig met genereren…' : 'Genereer rapport'}
       </button>
     </form>
   )
