@@ -295,7 +295,7 @@ export default async function ZaakDetailPage({
                 <input
                   type="file"
                   name="extra_bestanden"
-                  accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
+                  accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx,.doc,.xls"
                   multiple
                   className={fileInputClass}
                 />
@@ -320,7 +320,7 @@ export default async function ZaakDetailPage({
               <input
                 type="file"
                 name="bestanden"
-                accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx"
+                accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx,.doc,.xls"
                 multiple
                 className={fileInputClass}
               />
