@@ -5,13 +5,21 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { DOCUMENT_LABELS, type DocumentType } from '@/lib/documenten/vereisten'
 import { leesBestandInhoud } from '@/lib/documenten/lees-bestand'
-import { verwerkUpload } from '@/lib/documenten/verwerk-upload'
+import { verwerkGeuploadBestand } from '@/lib/documenten/verwerk-upload'
 import { genereerRapportageTekst, type DocumentFeit, type OndernemingFeit } from '@/lib/rapportage/genereer'
 
-export async function uploadDocumenten(formData: FormData) {
-  const zaakId = String(formData.get('zaak_id') ?? '')
-  const bestanden = formData.getAll('bestanden').filter((f): f is File => f instanceof File && f.size > 0)
+export interface GeuploadBestand {
+  path: string
+  naam: string
+}
 
+// De bestanden zelf zijn door de browser al rechtstreeks naar Supabase
+// Storage geüpload (zie upload-documenten-form.tsx) — Vercel's serverless
+// functions accepteren geen requestbody groter dan 4,5MB, ongeacht Next.js'
+// eigen serverActions.bodySizeLimit, dus een batch scans/PDF's via de
+// server-action-body sturen loopt daar op vast. Deze actie krijgt alleen de
+// (kleine) storage-paden door en classificeert vanaf daar.
+export async function verwerkGeuploadeDocumenten(zaakId: string, bestanden: GeuploadBestand[]) {
   if (bestanden.length === 0) {
     redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Kies eerst een of meer bestanden')}`)
   }
@@ -22,8 +30,8 @@ export async function uploadDocumenten(formData: FormData) {
   } = await supabase.auth.getUser()
 
   const mislukt: string[] = []
-  for (const bestand of bestanden) {
-    const resultaat = await verwerkUpload(supabase, zaakId, user!.id, bestand)
+  for (const { path, naam } of bestanden) {
+    const resultaat = await verwerkGeuploadBestand(supabase, zaakId, user!.id, path, naam)
     if (!resultaat.ok) mislukt.push(`${resultaat.bestandsnaam} (${resultaat.error})`)
   }
 
@@ -99,19 +107,19 @@ export async function verwijderZaak(formData: FormData) {
   redirect('/')
 }
 
-export async function genereerRapportage(formData: FormData) {
-  const zaakId = String(formData.get('zaak_id') ?? '')
-  const extraContext = String(formData.get('extra_context') ?? '').trim() || null
+export async function genereerRapportageActie(
+  zaakId: string,
+  extraContext: string | null,
+  extraBestanden: GeuploadBestand[]
+) {
   const supabase = await createClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const extraBestanden = formData.getAll('extra_bestanden').filter((f): f is File => f instanceof File && f.size > 0)
-
-  for (const bestand of extraBestanden) {
-    const resultaat = await verwerkUpload(supabase, zaakId, user!.id, bestand)
+  for (const { path, naam } of extraBestanden) {
+    const resultaat = await verwerkGeuploadBestand(supabase, zaakId, user!.id, path, naam)
     if (!resultaat.ok) {
       redirect(`/zaken/${zaakId}?error=${encodeURIComponent(`${resultaat.bestandsnaam}: ${resultaat.error}`)}`)
     }

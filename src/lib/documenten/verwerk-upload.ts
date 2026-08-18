@@ -105,23 +105,30 @@ export interface VerwerkUploadResultaat {
   error?: string
 }
 
-// Upload één bestand naar Storage, laat het classificeren, vult zaak-/
+// Verwerkt een bestand dat de browser al rechtstreeks naar Storage heeft
+// geüpload (path bestaat al) — laat het classificeren, vult zaak-/
 // ondernemingsmetadata aan waar die nog ontbreekt, en maakt voor elke
 // herkende categorie+jaar-combinatie een documenten-rij aan (allemaal
 // wijzend naar hetzelfde geüploade bestand — één bestand kan aan meerdere
 // categorieën voldoen). Niets herkend of onleesbaar → één rij als "overig",
 // zodat het bestand nooit stilzwijgend verdwijnt.
-export async function verwerkUpload(
+//
+// Het bestand zelf gaat NIET meer via deze server action-body — Vercel's
+// serverless functions hebben een harde, niet-instelbare limiet van 4,5MB
+// per request-body, ongeacht Next.js' eigen serverActions.bodySizeLimit.
+// De browser uploadt daarom rechtstreeks naar Supabase Storage (zie
+// upload-documenten-form.tsx / genereer-rapport-form.tsx); deze functie
+// haalt het bestand hier alleen op om te classificeren.
+export async function verwerkGeuploadBestand(
   supabase: SupabaseClient,
   zaakId: string,
   userId: string,
-  bestand: File
+  path: string,
+  bestandsnaam: string
 ): Promise<VerwerkUploadResultaat> {
-  const path = `${zaakId}/${crypto.randomUUID()}/${bestand.name}`
-
-  const { error: uploadError } = await supabase.storage.from('documenten').upload(path, bestand)
-  if (uploadError) {
-    return { bestandsnaam: bestand.name, ok: false, error: uploadError.message }
+  const { data: bestand, error: downloadError } = await supabase.storage.from('documenten').download(path)
+  if (downloadError || !bestand) {
+    return { bestandsnaam, ok: false, error: downloadError?.message ?? 'Downloaden uit Storage mislukt' }
   }
 
   const inhoud = await leesBestandInhoud(bestand)
@@ -166,8 +173,8 @@ export async function verwerkUpload(
   )
 
   if (insertError) {
-    return { bestandsnaam: bestand.name, ok: false, error: insertError.message }
+    return { bestandsnaam, ok: false, error: insertError.message }
   }
 
-  return { bestandsnaam: bestand.name, ok: true }
+  return { bestandsnaam, ok: true }
 }
