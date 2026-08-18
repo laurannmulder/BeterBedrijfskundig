@@ -51,13 +51,11 @@ export function NotitieBlok({ zaakId, notitie }: { zaakId: string; notitie: Noti
         <button
           type="button"
           onClick={() => setUitgeklapt((v) => !v)}
-          className="flex min-w-0 flex-1 items-start gap-1.5 text-left"
+          className="group flex min-w-0 flex-1 items-start gap-2 text-left"
         >
-          {uitgeklapt ? (
-            <ChevronUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-          ) : (
-            <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
-          )}
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition-colors group-hover:bg-zinc-200 group-hover:text-zinc-900">
+            {uitgeklapt ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
           <span
             className={`text-sm text-zinc-800 ${uitgeklapt ? 'whitespace-pre-wrap' : 'truncate whitespace-nowrap'}`}
           >
