@@ -76,6 +76,14 @@ Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/a
 
 **Download als Word:** op elke versiepagina zet de knop **"Download als Word"** (`/zaken/[id]/rapportages/[rapportageId]/docx`) de markdown-inhoud om naar een `.docx`-bestand. `src/lib/rapportage/naar-docx.ts` parseert de markdown naar een AST (`unified`/`remark-parse`/`remark-gfm`) en zet koppen, vet/cursief, tabellen, genummerde/opsommingslijsten en blockquotes om naar `docx`-elementen; de route handler (`.../docx/route.ts`) stuurt het resultaat terug als download met een bestandsnaam op basis van de betrokkene en de datum.
 
+**Briefpapier/huisstijl (2026-08-18):** het Word-document volgt het kantoor-eigen briefpapier, 1-op-1 overgenomen uit het blanco formatdocument ("Format BEDRIJFSKUNDIGE RAPPORTAGE.docx", uitgepakt en de exacte marges/posities uit de XML gehaald — geen cliëntgegevens):
+- A4, marges 2,5cm rondom, header/footer-afstand 1,25cm (`titlePage: true` — de voorpagina heeft een andere header dan de rest).
+- Voorpagina-header: het volledige Wibbens-briefhoofd (logo "bedrijfskundig advies", adres/contactgegevens, IBAN/KvK/BTW), rechts uitgelijnd, full-page.
+- Overige pagina's: een klein decoratief hoekaccent (hetzelfde patroon als de voorpagina-achtergrond, sterk uitgerekt/verkleind — net als in het origineel).
+- Het Nationaal Keurmerk Letselschade-beeldmerk direct na de vier gegevenstabellen van het omslagblok.
+- De assets zelf staan als base64 ingebakken in `src/lib/rapportage/briefpapier/assets.ts` (niet via `fs.readFileSync` op runtime-pad, om niet afhankelijk te zijn van Next.js'/Vercel's bestandstracering in de serverless function).
+- **Bekende afwijkingen t.o.v. het origineel:** de `docx`-package ondersteunt geen doorzichtigheid, dus de halfdoorzichtige (64%) achtergrondtekening op de voorpagina zelf (los van de header) is weggelaten — invoegen op volledige dekking zou de tabellen minder leesbaar maken. De exacte verticale positie van het Keurmerk-beeldmerk in het origineel was niet aan één specifieke alinea te koppelen; de huidige plek (direct na de gegevenstabellen) is een verantwoorde benadering. Een automatische inhoudsopgave (met bijbehorend decoratief streepje, `INHOUDSOPGAVE-IMAGE.png` in het origineel) zit er nog niet in — dat is een aparte, grotere toevoeging.
+
 ## Deployment
 
 Live op Vercel: **https://beter-bedrijfskundig.vercel.app** (GitHub: `laurannmulder/BeterBedrijfskundig`, auto-deploy vanaf `main`). Productie en lokale ontwikkeling delen op dit moment dezelfde Supabase-database.

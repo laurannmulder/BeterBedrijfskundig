@@ -15,9 +15,95 @@ import {
   BorderStyle,
   LevelFormat,
   AlignmentType,
+  Header,
+  ImageRun,
+  HorizontalPositionAlign,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionRelativeFrom,
+  TextWrappingType,
 } from 'docx'
+import {
+  VOORPAGINA_BRIEFHOOFD_JPEG,
+  ACCENT_PATROON_PNG,
+  KEURMERK_LETSELSCHADE_JPEG,
+} from './briefpapier/assets'
 
 const TABEL_BREEDTE_DXA = 9000
+
+// Paginaopmaak (A4, marges, briefpapier) is 1-op-1 overgenomen uit het
+// kantoor-eigen blanco formatdocument ("Format BEDRIJFSKUNDIGE RAPPORTAGE.docx"),
+// door de originele .docx uit te pakken en de exacte waarden uit
+// word/document.xml + word/header2.xml + word/header3.xml te lezen.
+// Let op inconsistente eenheden in de docx-package: `transformation.width/
+// height` wil pixels (intern × 9525 = EMU), maar `floating.*Position.offset`
+// wil EMU rechtstreeks (geverifieerd door de gegenereerde XML te inspecteren
+// — een offset van 47 kwam er als "47" i.p.v. "447675" uit).
+const PAGINA_BREEDTE_TWIPS = 11906
+const PAGINA_HOOGTE_TWIPS = 16838
+const MARGE_TWIPS = 1417
+const HEADER_FOOTER_AFSTAND_TWIPS = 709
+
+function voorpaginaHeader(): Header {
+  return new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new ImageRun({
+            type: 'jpg',
+            data: VOORPAGINA_BRIEFHOOFD_JPEG,
+            transformation: { width: 792, height: 1120 },
+            floating: {
+              horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, align: HorizontalPositionAlign.RIGHT },
+              verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: -448310 },
+              behindDocument: true,
+              wrap: { type: TextWrappingType.NONE },
+            },
+          }),
+        ],
+      }),
+    ],
+  })
+}
+
+function standaardHeader(): Header {
+  return new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new ImageRun({
+            type: 'png',
+            data: ACCENT_PATROON_PNG,
+            transformation: { width: 62, height: 60 },
+            floating: {
+              horizontalPosition: { relative: HorizontalPositionRelativeFrom.COLUMN, offset: 5937250 },
+              verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: -307975 },
+              behindDocument: true,
+              wrap: { type: TextWrappingType.NONE },
+            },
+          }),
+        ],
+      }),
+    ],
+  })
+}
+
+// Het Nationaal Keurmerk Letselschade-beeldmerk staat in het origineel op de
+// voorpagina, los van de tekststroom (floating, behindDoc). Als losse
+// paragraaf vlak na de gegevenstabellen ingevoegd — de exacte verticale
+// positie in het origineel viel niet 1-op-1 te herleiden (geen directe
+// koppeling met een specifieke alinea), dit is een verantwoorde benadering.
+function keurmerkParagraaf(): Paragraph {
+  return new Paragraph({
+    spacing: { before: 200 },
+    children: [
+      new ImageRun({
+        type: 'jpg',
+        data: KEURMERK_LETSELSCHADE_JPEG,
+        transformation: { width: 229, height: 69 },
+      }),
+    ],
+  })
+}
 
 // Matcht het lettertype van de rapportageweergave in de app (body font-family: Arial, Helvetica, sans-serif).
 const LETTERTYPE = 'Arial'
@@ -232,10 +318,47 @@ export async function genereerDocxBuffer(markdown: string): Promise<Buffer> {
     },
     sections: [
       {
-        children: blokkenNaarDocx(tree.children),
+        properties: {
+          page: {
+            size: { width: PAGINA_BREEDTE_TWIPS, height: PAGINA_HOOGTE_TWIPS },
+            margin: {
+              top: MARGE_TWIPS,
+              right: MARGE_TWIPS,
+              bottom: MARGE_TWIPS,
+              left: MARGE_TWIPS,
+              header: HEADER_FOOTER_AFSTAND_TWIPS,
+              footer: HEADER_FOOTER_AFSTAND_TWIPS,
+            },
+          },
+          titlePage: true,
+        },
+        headers: {
+          first: voorpaginaHeader(),
+          default: standaardHeader(),
+        },
+        children: metKeurmerkNaVoorpagina(blokkenNaarDocx(tree.children)),
       },
     ],
   })
 
   return Packer.toBuffer(doc)
+}
+
+// Voegt het Keurmerk-beeldmerk toe direct na de vier gegevenstabellen van het
+// omslagblok (zie sjabloon.ts) — vóór de rest van de inhoud begint.
+function metKeurmerkNaVoorpagina(elementen: (Paragraph | Table)[]): (Paragraph | Table)[] {
+  let aantalTabellenGezien = 0
+  const resultaat: (Paragraph | Table)[] = []
+
+  for (const el of elementen) {
+    resultaat.push(el)
+    if (el instanceof Table) {
+      aantalTabellenGezien += 1
+      if (aantalTabellenGezien === 4) {
+        resultaat.push(keurmerkParagraaf())
+      }
+    }
+  }
+
+  return resultaat
 }
