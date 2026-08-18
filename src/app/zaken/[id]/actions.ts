@@ -80,6 +80,71 @@ export async function verwijderDocument(formData: FormData) {
   redirect(`/zaken/${zaakId}`)
 }
 
+// "Aanvullende informatie" (zaak_notities) is bewust iets anders dan
+// rapportages.extra_context: dit zijn persistente blokken die bij élke
+// toekomstige generatie voor deze zaak meegegeven worden, totdat ze bewust
+// gewijzigd of verwijderd worden — zie genereerRapportageActie hieronder.
+export async function voegNotitieToe(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const tekst = String(formData.get('tekst') ?? '').trim()
+
+  if (!tekst) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Vul eerst tekst in')}`)
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { error } = await supabase.from('zaak_notities').insert({ zaak_id: zaakId, tekst, created_by: user!.id })
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}`)
+}
+
+export async function wijzigNotitie(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const notitieId = String(formData.get('notitie_id') ?? '')
+  const tekst = String(formData.get('tekst') ?? '').trim()
+
+  if (!tekst) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Vul eerst tekst in')}`)
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('zaak_notities')
+    .update({ tekst, updated_at: new Date().toISOString() })
+    .eq('id', notitieId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}`)
+}
+
+export async function verwijderNotitie(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const notitieId = String(formData.get('notitie_id') ?? '')
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('zaak_notities').delete().eq('id', notitieId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}`)
+}
+
 export async function verwijderZaak(formData: FormData) {
   const zaakId = String(formData.get('zaak_id') ?? '')
   const supabase = await createClient()
@@ -131,6 +196,11 @@ export async function genereerRapportageActie(
     .select('*')
     .eq('zaak_id', zaakId)
   const { data: documentenRows } = await supabase.from('documenten').select('*').eq('zaak_id', zaakId)
+  const { data: notitieRows } = await supabase
+    .from('zaak_notities')
+    .select('tekst')
+    .eq('zaak_id', zaakId)
+    .order('created_at')
 
   if (!zaak || !ondernemingenRows || !documentenRows) {
     redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Zaakgegevens konden niet worden geladen')}`)
@@ -187,6 +257,7 @@ export async function genereerRapportageActie(
         kenmerk: zaak.belangenbehartiger_kenmerk,
       },
       documenten,
+      notities: (notitieRows ?? []).map((n) => n.tekst),
       extraContext,
     })
   } catch (fout) {

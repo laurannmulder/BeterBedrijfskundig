@@ -40,14 +40,14 @@ export function GenereerRapportForm({ zaakId }: { zaakId: string }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <label className={labelClass}>
-        Extra informatie voor deze rapportage (optioneel)
+        Extra informatie alléén voor deze versie (optioneel)
         <textarea
           name="extra_context"
           value={extraContext}
           onChange={(e) => setExtraContext(e.target.value)}
           rows={3}
           disabled={bezig}
-          placeholder="Bijv. aandachtspunten, context uit een gesprek, of specifieke instructies voor deze versie."
+          placeholder="Bijv. een instructie die alleen voor déze generatie geldt. Voor blijvende informatie: zie 'Aanvullende informatie' verderop op de pagina."
           className={inputClass}
         />
       </label>

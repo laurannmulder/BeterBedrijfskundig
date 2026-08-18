@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, CheckCircle2, ExternalLink, FileText, Trash2, UploadCloud } from 'lucide-react'
+import { Building2, CheckCircle2, ExternalLink, FileText, StickyNote, Trash2, UploadCloud } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   DOCUMENT_LABELS,
@@ -9,11 +9,12 @@ import {
   type Rechtsvorm,
 } from '@/lib/documenten/vereisten'
 import { Header } from '@/components/Header'
-import { Card, LinkButton, PageHeader } from '@/components/ui'
-import { verwijderDocument, verwijderZaak } from './actions'
+import { Card, LinkButton, PageHeader, inputClass } from '@/components/ui'
+import { verwijderDocument, verwijderZaak, voegNotitieToe } from './actions'
 import { UploadDocumentenForm } from './upload-documenten-form'
 import { GenereerRapportForm } from './genereer-rapport-form'
 import { VerwijderZaakForm } from './verwijder-zaak-form'
+import { NotitieBlok } from './notitie-blok'
 
 const ZAAK_DOCUMENT_VOLGORDE: DocumentType[] = ['opdrachtbrief', 'aangifte_ib']
 
@@ -126,6 +127,11 @@ export default async function ZaakDetailPage({
     .from('rapportages')
     .select('id', { count: 'exact', head: true })
     .eq('zaak_id', id)
+  const { data: notities } = await supabase
+    .from('zaak_notities')
+    .select('id, tekst')
+    .eq('zaak_id', id)
+    .order('created_at')
 
   if (!zaak) {
     return (
@@ -225,6 +231,41 @@ export default async function ZaakDetailPage({
           />
 
           {error && <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>}
+
+          <section className="flex flex-col gap-3">
+            <div>
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
+                <StickyNote className="h-4 w-4" />
+                Aanvullende informatie
+              </h2>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Deze blokken worden meegegeven bij elke toekomstige rapportgeneratie voor deze zaak, niet
+                alleen bij één versie.
+              </p>
+            </div>
+            {notities && notities.length > 0 && (
+              <Card className="divide-y divide-zinc-100">
+                {notities.map((notitie) => (
+                  <NotitieBlok key={notitie.id} zaakId={id} notitie={notitie} />
+                ))}
+              </Card>
+            )}
+            <form action={voegNotitieToe} className="flex flex-col gap-2">
+              <input type="hidden" name="zaak_id" value={id} />
+              <textarea
+                name="tekst"
+                rows={2}
+                placeholder="Bijv. een blijvend aandachtspunt of achtergrondinformatie voor deze zaak."
+                className={inputClass}
+              />
+              <button
+                type="submit"
+                className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
+              >
+                Toevoegen
+              </button>
+            </form>
+          </section>
 
           {zaakDocumenten.length > 0 && (
             <section className="flex flex-col gap-5">

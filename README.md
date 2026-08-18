@@ -62,6 +62,8 @@ Elke rij toont de bestandslink (signed URL, 10 min geldig) en een **"Verwijderen
 
 **Overige documenten bij rapportgeneratie:** bij het genereren van een rapportage kun je naast het tekstvak met extra informatie ook meteen één of meerdere bestanden meegeven (`extra_bestanden`, multi-select) — deze doorlopen dezelfde classificatie als bij "Documenten uploaden" en verschijnen dus ook gewoon bij de juiste categorie (of "Overige documenten" als niets herkend wordt). Ze blijven bewaard voor toekomstige versies, niet alleen voor de generatie waarbij ze zijn geüpload.
 
+**Aanvullende informatie (2026-08-18):** naast het tekstvak "Extra informatie" op het genereer-formulier (dat alleen voor die ene versie geldt) staat op de zaakpagina een aparte sectie "Aanvullende informatie" (tabel `zaak_notities`) met losse tekstblokken die **bij elke toekomstige generatie** voor de zaak worden meegegeven, totdat ze bewust gewijzigd of verwijderd worden. Elk blok is los te bewerken (`notitie-blok.tsx`, toggle tussen weergave en een bewerk-tekstvak) of te verwijderen. `genereerRapportageActie` haalt alle notities van de zaak op en geeft ze als aparte, duidelijk gelabelde sectie mee aan de prompt (`genereer.ts`), los van het per-versie `extra_context`.
+
 ## Rapportgeneratie
 
 Op de zaakpagina genereert de knop **"Genereer rapport"** (`src/app/zaken/[id]/actions.ts` → `genereerRapportage`) een conceptrapportage:

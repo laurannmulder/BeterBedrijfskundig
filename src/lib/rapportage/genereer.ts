@@ -47,6 +47,9 @@ export interface RapportageInput {
   verzekeraar: VerzekeraarFeit
   belangenbehartiger: BelangenbehartigerFeit
   documenten: DocumentFeit[]
+  // Persistente notities op zaakniveau (zaak_notities) — gelden voor élke
+  // generatie van deze zaak, in tegenstelling tot extraContext hieronder.
+  notities: string[]
   extraContext: string | null
 }
 
@@ -109,8 +112,13 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<s
           .join('\n')
       : '(nog niet bekend — dient zo mogelijk uit de aangeleverde documenten te worden afgeleid)'
 
+  const notitiesTekst =
+    input.notities.length > 0
+      ? `Blijvende aanvullende informatie bij deze zaak (geldt voor de hele zaak, niet alleen deze versie — weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.notities.map((n) => `- ${n}`).join('\n')}\n\n`
+      : ''
+
   const extraContextTekst = input.extraContext
-    ? `Aanvullende informatie/instructies van de bedrijfskundige voor deze versie (weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.extraContext}\n\n`
+    ? `Aanvullende informatie/instructies van de bedrijfskundige voor deze specifieke versie (weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.extraContext}\n\n`
     : ''
 
   const opdrachtTekst = `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
@@ -125,7 +133,7 @@ ${ondernemingenTekst}
 Verzekeraar: ${input.verzekeraar.naam ?? 'onbekend'}${input.verzekeraar.contactpersoon ? `, contactpersoon ${input.verzekeraar.contactpersoon}` : ''}${input.verzekeraar.email ? `, ${input.verzekeraar.email}` : ''}${input.verzekeraar.kenmerk ? `, kenmerk ${input.verzekeraar.kenmerk}` : ''}
 Belangenbehartiger: ${input.belangenbehartiger.bureau ?? 'onbekend'}${input.belangenbehartiger.naam ? `, ${input.belangenbehartiger.naam}` : ''}${input.belangenbehartiger.email ? `, ${input.belangenbehartiger.email}` : ''}${input.belangenbehartiger.kenmerk ? `, kenmerk ${input.belangenbehartiger.kenmerk}` : ''}
 
-${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
+${notitiesTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
 
   const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten. Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.`
 
