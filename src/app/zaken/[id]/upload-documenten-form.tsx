@@ -2,8 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { fileInputClass } from '@/components/ui'
+import { InfoTooltip } from '@/components/InfoTooltip'
 import { uploadBestandenNaarStorage } from '@/lib/documenten/client-upload'
 import { verwerkGeuploadeDocumenten } from './actions'
+
+const HULPTEKST =
+  "PDF, Word, Excel, foto's/scans — meerdere tegelijk mogelijk. Elk bestand wordt automatisch herkend (bijv. jaarcijfers, aangifte IB, KvK-uittreksel) — één bestand kan aan meerdere categorieën voldoen. Ontbrekende zaak-/ondernemingsgegevens (KvK-nummer, oprichtingsdatum, ongevalsdatum) worden zo mogelijk automatisch aangevuld. Dit kan bij grote bestanden een tijdje duren."
 
 export function UploadDocumentenForm({ zaakId }: { zaakId: string }) {
   const [bestanden, setBestanden] = useState<File[]>([])
@@ -37,20 +41,17 @@ export function UploadDocumentenForm({ zaakId }: { zaakId: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
-        type="file"
-        accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx,.doc,.xls"
-        multiple
-        disabled={bezig}
-        onChange={(e) => setBestanden(Array.from(e.target.files ?? []))}
-        className={fileInputClass}
-      />
-      <p className="text-xs text-zinc-400">
-        PDF, Word, Excel, foto&apos;s/scans — meerdere tegelijk mogelijk. Elk bestand wordt automatisch
-        herkend (bijv. jaarcijfers, aangifte IB, KvK-uittreksel) — één bestand kan aan meerdere categorieën
-        voldoen. Ontbrekende zaak-/ondernemingsgegevens (KvK-nummer, oprichtingsdatum, ongevalsdatum) worden
-        zo mogelijk automatisch aangevuld. Dit kan bij grote bestanden een tijdje duren.
-      </p>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="file"
+          accept=".pdf,.jpg,.jpeg,.png,.txt,.docx,.xlsx,.doc,.xls"
+          multiple
+          disabled={bezig}
+          onChange={(e) => setBestanden(Array.from(e.target.files ?? []))}
+          className={fileInputClass}
+        />
+        <InfoTooltip tekst={HULPTEKST} />
+      </div>
       {fout && <p className="text-sm text-red-600">{fout}</p>}
       <button
         type="submit"
