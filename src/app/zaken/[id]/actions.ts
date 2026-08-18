@@ -167,26 +167,34 @@ export async function genereerRapportageActie(
     documenten.push({ ...basis, ...(await leesBestandInhoud(bestand)) })
   }
 
-  const inhoud = await genereerRapportageTekst({
-    naamBetrokkene: zaak.naam_betrokkene,
-    dossiernummer: zaak.dossiernummer,
-    ongevalsdatum: zaak.ongevalsdatum,
-    ondernemingen,
-    verzekeraar: {
-      naam: zaak.verzekeraar_naam,
-      contactpersoon: zaak.verzekeraar_contactpersoon,
-      email: zaak.verzekeraar_email,
-      kenmerk: zaak.verzekeraar_kenmerk,
-    },
-    belangenbehartiger: {
-      bureau: zaak.belangenbehartiger_bureau,
-      naam: zaak.belangenbehartiger_naam,
-      email: zaak.belangenbehartiger_email,
-      kenmerk: zaak.belangenbehartiger_kenmerk,
-    },
-    documenten,
-    extraContext,
-  })
+  let inhoud: string
+  try {
+    inhoud = await genereerRapportageTekst({
+      naamBetrokkene: zaak.naam_betrokkene,
+      dossiernummer: zaak.dossiernummer,
+      ongevalsdatum: zaak.ongevalsdatum,
+      ondernemingen,
+      verzekeraar: {
+        naam: zaak.verzekeraar_naam,
+        contactpersoon: zaak.verzekeraar_contactpersoon,
+        email: zaak.verzekeraar_email,
+        kenmerk: zaak.verzekeraar_kenmerk,
+      },
+      belangenbehartiger: {
+        bureau: zaak.belangenbehartiger_bureau,
+        naam: zaak.belangenbehartiger_naam,
+        email: zaak.belangenbehartiger_email,
+        kenmerk: zaak.belangenbehartiger_kenmerk,
+      },
+      documenten,
+      extraContext,
+    })
+  } catch (fout) {
+    // De Claude API geeft af en toe een tijdelijke 5xx/overloaded-fout terug
+    // (de SDK retryt dat zelf al een paar keer voor het hier uitkomt).
+    const melding = fout instanceof Error ? fout.message : String(fout)
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(`Genereren mislukt, probeer het opnieuw (${melding})`)}`)
+  }
 
   const { data: nieuweRapportage, error: insertError } = await supabase
     .from('rapportages')

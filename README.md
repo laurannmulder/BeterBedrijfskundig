@@ -58,6 +58,8 @@ Elke rij toont de bestandslink (signed URL, 10 min geldig) en een **"Verwijderen
 
 **Kosten/tijd:** elke upload triggert een Claude-aanroep. Bij een groot bestand kan classificeren tot rond een minuut duren; bij meerdere bestanden tegelijk gebeurt dat na elkaar (geen achtergrond-jobsysteem — de pagina blijft laden tot alles verwerkt is).
 
+**Tijdelijke API-overbelasting:** de Claude API geeft af en toe een tijdelijke `overloaded_error` (HTTP 529) terug — de SDK retryt dat zelf al automatisch (`maxRetries: 5` in `src/lib/claude.ts`, met backoff). Blijft een classificatie na die retries alsnog mislukken, dan crasht dat sinds deze fix niet meer de hele batch-upload: dat ene bestand wordt gemeld als "niet gelukt" (met foutmelding) en de overige bestanden in de batch worden gewoon verwerkt. Hetzelfde geldt voor het genereren van een rapportage.
+
 **Overige documenten bij rapportgeneratie:** bij het genereren van een rapportage kun je naast het tekstvak met extra informatie ook meteen één of meerdere bestanden meegeven (`extra_bestanden`, multi-select) — deze doorlopen dezelfde classificatie als bij "Documenten uploaden" en verschijnen dus ook gewoon bij de juiste categorie (of "Overige documenten" als niets herkend wordt). Ze blijven bewaard voor toekomstige versies, niet alleen voor de generatie waarbij ze zijn geüpload.
 
 ## Rapportgeneratie

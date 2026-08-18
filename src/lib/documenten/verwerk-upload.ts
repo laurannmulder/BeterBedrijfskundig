@@ -132,7 +132,19 @@ export async function verwerkGeuploadBestand(
   }
 
   const inhoud = await leesBestandInhoud(bestand)
-  const resultaat = await classificeerDocument(inhoud)
+
+  let resultaat: Awaited<ReturnType<typeof classificeerDocument>>
+  try {
+    resultaat = await classificeerDocument(inhoud)
+  } catch (fout) {
+    // De Claude API geeft af en toe een tijdelijke 5xx/overloaded-fout terug
+    // (de SDK retryt dat zelf al een paar keer). Eén mislukt bestand mag de
+    // rest van een batch-upload niet meesleuren — dit bestand komt dan simpel
+    // niet in `documenten` terecht, en de gebruiker ziet welk bestand het was
+    // en kan het opnieuw uploaden.
+    const melding = fout instanceof Error ? fout.message : String(fout)
+    return { bestandsnaam, ok: false, error: `Classificatie mislukt, probeer het bestand opnieuw te uploaden (${melding})` }
+  }
 
   await vulZaakveldenAan(supabase, zaakId, {
     ongevalsdatum: resultaat.metadata.ongevalsdatum,
