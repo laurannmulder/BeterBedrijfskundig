@@ -7,7 +7,7 @@ export function Header({ userEmail }: { userEmail?: string }) {
   return (
     <header className="sticky top-0 z-10 flex w-full items-center justify-between gap-3 border-b border-zinc-200 bg-white/80 px-4 py-3 backdrop-blur-sm sm:px-6">
       <Link href="/" className="flex shrink-0 items-center">
-        <Image src="/logo.png" alt="oliver.bb" width={141} height={40} priority className="h-8 w-auto sm:h-10" />
+        <Image src="/logo.svg" alt="oliver.bb" width={152} height={40} priority className="h-8 w-auto sm:h-10" />
       </Link>
       <nav className="flex items-center gap-1 text-sm">
         <Link
