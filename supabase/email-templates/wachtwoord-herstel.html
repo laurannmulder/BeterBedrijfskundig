@@ -1,0 +1,21 @@
+<h2>Nieuw wachtwoord instellen</h2>
+
+<p>Je hebt gevraagd om je wachtwoord voor Oliver BB opnieuw in te stellen. Klik op de knop hieronder om door te gaan.</p>
+
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/wachtwoord-instellen"
+     style="display:inline-block;background:#141414;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-family:system-ui,sans-serif">
+    Nieuw wachtwoord instellen
+  </a>
+</p>
+
+<p style="color:#71717a;font-size:14px;font-family:system-ui,sans-serif">
+  Werkt de knop niet? Kopieer dan deze link naar je browser:<br>
+  {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/wachtwoord-instellen
+</p>
+
+<p style="color:#71717a;font-size:14px;font-family:system-ui,sans-serif">
+  Deze link is 1 uur geldig en kan maar één keer gebruikt worden.
+  Heb je hier niet om gevraagd? Dan kun je deze mail negeren.<br>
+  — Oliver BB
+</p>
