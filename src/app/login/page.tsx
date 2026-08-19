@@ -1,7 +1,7 @@
-import Image from 'next/image'
 import Link from 'next/link'
 import { login } from './actions'
 import { Card, inputClass } from '@/components/ui'
+import { Logo } from '@/components/Logo'
 
 export default async function LoginPage({
   searchParams,
@@ -12,7 +12,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-zinc-50 p-8">
-      <Image src="/logo.svg" alt="oliver.bb" width={152} height={40} priority className="h-10 w-auto" />
+      <Logo className="text-4xl" />
       <Card className="w-full max-w-sm p-6">
         <form action={login} className="flex flex-col gap-3">
           <input
