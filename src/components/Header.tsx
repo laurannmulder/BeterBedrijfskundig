@@ -1,13 +1,13 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { FilePlus, Users } from 'lucide-react'
 import { signOut } from '@/app/actions'
-import { Logo } from '@/components/Logo'
 
 export function Header({ userEmail }: { userEmail?: string }) {
   return (
     <header className="sticky top-0 z-10 flex w-full items-center justify-between gap-3 border-b border-zinc-200 bg-white/80 px-4 py-3 backdrop-blur-sm sm:px-6">
       <Link href="/" className="flex shrink-0 items-center">
-        <Logo className="text-2xl sm:text-3xl" />
+        <Image src="/logo.svg" alt="oliver.bb" width={152} height={40} priority className="h-[22px] w-auto sm:h-[28px]" />
       </Link>
       <nav className="flex items-center gap-1 text-sm">
         <Link
