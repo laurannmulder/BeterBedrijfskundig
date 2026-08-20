@@ -8,10 +8,6 @@ export default async function RapportagesPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { data: zaak } = await supabase.from('zaken').select('naam_betrokkene').eq('id', id).single()
   const { data: rapportages } = await supabase
     .from('rapportages')
@@ -21,7 +17,7 @@ export default async function RapportagesPage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <Header userEmail={user?.email} />
+      <Header />
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-8">
         <PageHeader
           title={`Rapportages — ${zaak?.naam_betrokkene}`}

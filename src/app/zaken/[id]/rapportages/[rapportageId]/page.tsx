@@ -15,10 +15,6 @@ export default async function RapportageDetailPage({
   const { id, rapportageId } = await params
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { data: zaak } = await supabase.from('zaken').select('naam_betrokkene').eq('id', id).single()
   const { data: rapportage } = await supabase
     .from('rapportages')
@@ -29,7 +25,7 @@ export default async function RapportageDetailPage({
   if (!rapportage) {
     return (
       <>
-        <Header userEmail={user?.email} />
+        <Header />
         <main className="flex flex-col items-center justify-center gap-4 p-8">
           <p>Rapportage niet gevonden.</p>
           <Link href={`/zaken/${id}/rapportages`} className="text-sm underline">
@@ -44,7 +40,7 @@ export default async function RapportageDetailPage({
 
   return (
     <>
-      <Header userEmail={user?.email} />
+      <Header />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-8">
         <PageHeader
           backHref={`/zaken/${id}/rapportages`}

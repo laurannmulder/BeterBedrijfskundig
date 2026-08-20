@@ -108,10 +108,6 @@ export default async function ZaakDetailPage({
 
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { data: zaak } = await supabase.from('zaken').select('*').eq('id', id).single()
   const { data: ondernemingen } = await supabase
     .from('ondernemingen')
@@ -136,7 +132,7 @@ export default async function ZaakDetailPage({
   if (!zaak) {
     return (
       <>
-        <Header userEmail={user?.email} />
+        <Header />
         <main className="flex flex-col items-center justify-center gap-4 p-8">
           <p>Zaak niet gevonden.</p>
           <Link href="/" className="text-sm underline">
@@ -156,7 +152,7 @@ export default async function ZaakDetailPage({
 
   return (
     <>
-      <Header userEmail={user?.email} />
+      <Header />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8 lg:flex-row lg:items-start">
         <div className="flex w-full shrink-0 flex-col gap-6 lg:sticky lg:top-20 lg:w-64">
           <Card className="flex flex-col gap-4 p-5">

@@ -18,10 +18,6 @@ function relatieveTijd(iso: string): string {
 
 export default async function Home() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const { data: zaken } = await supabase
     .from('zaken')
     .select('id, naam_betrokkene, dossiernummer, ongevalsdatum, laatst_bewerkt')
@@ -51,7 +47,7 @@ export default async function Home() {
 
   return (
     <>
-      <Header userEmail={user?.email} />
+      <Header />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
