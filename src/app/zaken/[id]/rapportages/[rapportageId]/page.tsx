@@ -111,6 +111,15 @@ export default async function RapportageDetailPage({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{rapportage.inhoud}</ReactMarkdown>
           </article>
         </Card>
+
+        {rapportage.suggesties && (
+          <Card className="border-sky-200 bg-sky-50 p-5">
+            <p className="mb-2 text-sm font-medium text-sky-900">Suggesties voor aanvullende informatie</p>
+            <article className="prose prose-sm max-w-none prose-p:text-sky-900 prose-li:text-sky-900">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{rapportage.suggesties}</ReactMarkdown>
+            </article>
+          </Card>
+        )}
       </main>
     </>
   )

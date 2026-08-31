@@ -39,6 +39,11 @@ export interface BelangenbehartigerFeit {
   kenmerk: string | null
 }
 
+export interface EerdereRapportage {
+  datum: string
+  inhoud: string
+}
+
 export interface RapportageInput {
   naamBetrokkene: string
   dossiernummer: string | null
@@ -51,7 +56,21 @@ export interface RapportageInput {
   // generatie van deze zaak, in tegenstelling tot extraContext hieronder.
   notities: string[]
   extraContext: string | null
+  // Eerder gegenereerde rapportages voor dezelfde zaak (oudste eerst) — maakt
+  // dit een vervolgrapportage: al behandelde hoofdstukken/vragen/jaren worden
+  // niet herhaald, zie sjabloon.ts.
+  eerdereRapportages: EerdereRapportage[]
 }
+
+export interface RapportageResultaat {
+  rapportage: string
+  suggesties: string | null
+}
+
+// Scheidingsteken tussen de rapportage zelf en het losse suggesties-blok
+// (aanbevolen aanvullende informatie) — dit blok maakt geen deel uit van het
+// Word-document en wordt er hier uitgehaald.
+const SUGGESTIES_SCHEIDING = '===SUGGESTIES==='
 
 type ContentBlock = Anthropic.Messages.TextBlockParam | Anthropic.Messages.DocumentBlockParam | Anthropic.Messages.ImageBlockParam
 
@@ -97,7 +116,25 @@ function documentBlokken(documenten: DocumentFeit[]): ContentBlock[] {
   return blokken
 }
 
-export async function genereerRapportageTekst(input: RapportageInput): Promise<string> {
+function eerdereRapportagesBlokken(eerdereRapportages: EerdereRapportage[]): ContentBlock[] {
+  if (eerdereRapportages.length === 0) return []
+
+  const blokken: ContentBlock[] = [
+    {
+      type: 'text',
+      text: 'EERDERE RAPPORTAGE(S) VOOR DIT DOSSIER — dit maakt de op te stellen rapportage een VERVOLGRAPPORTAGE. Volg de vervolgrapportage-instructie in de sjabloon: herhaal geen al behandelde hoofdstukken/jaren/vragen.',
+    },
+  ]
+
+  for (const r of eerdereRapportages) {
+    blokken.push({ type: 'text', text: `### Eerdere rapportage d.d. ${r.datum}` })
+    blokken.push({ type: 'text', text: r.inhoud })
+  }
+
+  return blokken
+}
+
+export async function genereerRapportageTekst(input: RapportageInput): Promise<RapportageResultaat> {
   const client = createClaudeClient()
 
   const ondernemingenTekst =
@@ -133,9 +170,11 @@ ${ondernemingenTekst}
 Verzekeraar: ${input.verzekeraar.naam ?? 'onbekend'}${input.verzekeraar.contactpersoon ? `, contactpersoon ${input.verzekeraar.contactpersoon}` : ''}${input.verzekeraar.email ? `, ${input.verzekeraar.email}` : ''}${input.verzekeraar.kenmerk ? `, kenmerk ${input.verzekeraar.kenmerk}` : ''}
 Belangenbehartiger: ${input.belangenbehartiger.bureau ?? 'onbekend'}${input.belangenbehartiger.naam ? `, ${input.belangenbehartiger.naam}` : ''}${input.belangenbehartiger.email ? `, ${input.belangenbehartiger.email}` : ''}${input.belangenbehartiger.kenmerk ? `, kenmerk ${input.belangenbehartiger.kenmerk}` : ''}
 
-${notitiesTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
+${notitiesTekst}${extraContextTekst}Hieronder volgen eventuele eerdere rapportages voor dit dossier, de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
 
-  const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten. Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.`
+  const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten (en, waar expliciet toegestaan in de sjabloon, actuele branche-/marktinformatie die je zelf opzoekt). Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.
+
+Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met precies "${SUGGESTIES_SCHEIDING}" (deze regel en alles daarna maakt GEEN deel uit van de rapportage zelf — het wordt er automatisch uitgehaald en apart getoond aan de bedrijfskundige, niet in het Word-document). Geef daarin een korte, puntsgewijze lijst (2-6 punten) van concrete aanvullende informatie die de analyse zou verbeteren als die alsnog wordt aangeleverd (bv. een overzicht van de tien grootste klanten, een nog ontbrekende aangifte IB of jaarrekening, een gespecificeerde urenregistratie). Is er niets zinvols te suggereren, schrijf dan alleen "Geen aanvullende suggesties." na de scheidingsregel.`
 
   // max_tokens is a cap on thinking + response text combined (thinking is on
   // by default on claude-opus-5) — kept generous, and streamed since output
@@ -143,6 +182,7 @@ ${notitiesTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten 
   const stream = client.messages.stream({
     model: 'claude-opus-5',
     max_tokens: 32000,
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
     system: [
       {
         type: 'text',
@@ -155,6 +195,7 @@ ${notitiesTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten 
         role: 'user',
         content: [
           { type: 'text', text: opdrachtTekst },
+          ...eerdereRapportagesBlokken(input.eerdereRapportages),
           ...documentBlokken(input.documenten),
           { type: 'text', text: afsluitingTekst },
         ],
@@ -164,8 +205,18 @@ ${notitiesTekst}${extraContextTekst}Hieronder volgen de aangeleverde documenten 
 
   const message = await stream.finalMessage()
 
-  return message.content
+  const volledigeTekst = message.content
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
     .join('\n')
+
+  const scheidingIndex = volledigeTekst.indexOf(SUGGESTIES_SCHEIDING)
+  if (scheidingIndex === -1) {
+    return { rapportage: volledigeTekst.trim(), suggesties: null }
+  }
+
+  return {
+    rapportage: volledigeTekst.slice(0, scheidingIndex).trim(),
+    suggesties: volledigeTekst.slice(scheidingIndex + SUGGESTIES_SCHEIDING.length).trim() || null,
+  }
 }

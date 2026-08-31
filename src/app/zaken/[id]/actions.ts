@@ -201,6 +201,11 @@ export async function genereerRapportageActie(
     .select('tekst')
     .eq('zaak_id', zaakId)
     .order('created_at')
+  const { data: eerdereRapportageRows } = await supabase
+    .from('rapportages')
+    .select('inhoud, created_at')
+    .eq('zaak_id', zaakId)
+    .order('created_at')
 
   if (!zaak || !ondernemingenRows || !documentenRows) {
     redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Zaakgegevens konden niet worden geladen')}`)
@@ -237,9 +242,9 @@ export async function genereerRapportageActie(
     documenten.push({ ...basis, ...(await leesBestandInhoud(bestand)) })
   }
 
-  let inhoud: string
+  let resultaat: { rapportage: string; suggesties: string | null }
   try {
-    inhoud = await genereerRapportageTekst({
+    resultaat = await genereerRapportageTekst({
       naamBetrokkene: zaak.naam_betrokkene,
       dossiernummer: zaak.dossiernummer,
       ongevalsdatum: zaak.ongevalsdatum,
@@ -259,6 +264,10 @@ export async function genereerRapportageActie(
       documenten,
       notities: (notitieRows ?? []).map((n) => n.tekst),
       extraContext,
+      eerdereRapportages: (eerdereRapportageRows ?? []).map((r) => ({
+        datum: new Date(r.created_at).toLocaleDateString('nl-NL'),
+        inhoud: r.inhoud,
+      })),
     })
   } catch (fout) {
     // De Claude API geeft af en toe een tijdelijke 5xx/overloaded-fout terug
@@ -271,7 +280,8 @@ export async function genereerRapportageActie(
     .from('rapportages')
     .insert({
       zaak_id: zaakId,
-      inhoud,
+      inhoud: resultaat.rapportage,
+      suggesties: resultaat.suggesties,
       extra_context: extraContext,
       gegenereerd_door: user!.id,
     })
