@@ -16,6 +16,14 @@ import { GenereerRapportForm } from './genereer-rapport-form'
 import { VerwijderZaakForm } from './verwijder-zaak-form'
 import { NotitieBlok } from './notitie-blok'
 
+// Zonder deze export gebruikt Vercel de standaard functietijd-limiet, die
+// bij een omvangrijke zaak (veel PDF's, een eerdere rapportage als context,
+// de web_search-tool) al ruimschoots overschreden kan worden vóórdat Claude
+// klaar is — de generatie lijkt dan vast te lopen terwijl de functie
+// simpelweg is afgebroken. 300s is de praktische bovengrens; Vercel knijpt
+// dit vanzelf verder af als het abonnement een lagere limiet toestaat.
+export const maxDuration = 300
+
 const ZAAK_DOCUMENT_VOLGORDE: DocumentType[] = ['opdrachtbrief', 'aangifte_ib']
 
 interface DocumentRow {
