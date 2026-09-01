@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react'
 import { Sparkles } from 'lucide-react'
-import { genereerRapportageActie } from './actions'
+import { startRapportGeneratie } from './actions'
 
 // Documenten toevoegen gebeurt uitsluitend via het "Documenten uploaden"-
 // blok — dat dekte deze knop qua functie al af (alles wat daar geüpload is,
@@ -14,7 +14,7 @@ export function GenereerRapportForm({ zaakId }: { zaakId: string }) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     startTransition(async () => {
-      await genereerRapportageActie(zaakId, null, [])
+      await startRapportGeneratie(zaakId, null, [])
     })
   }
 

@@ -62,14 +62,9 @@ export interface RapportageInput {
   eerdereRapportages: EerdereRapportage[]
 }
 
-export interface RapportageResultaat {
-  rapportage: string
-  suggesties: string | null
-}
-
 // Scheidingsteken tussen de rapportage zelf en het losse suggesties-blok
 // (aanbevolen aanvullende informatie) — dit blok maakt geen deel uit van het
-// Word-document en wordt er hier uitgehaald.
+// Word-document en wordt er hier uitgehaald. Komt pas in de laatste stap.
 const SUGGESTIES_SCHEIDING = '===SUGGESTIES==='
 
 type ContentBlock = Anthropic.Messages.TextBlockParam | Anthropic.Messages.DocumentBlockParam | Anthropic.Messages.ImageBlockParam
@@ -136,17 +131,13 @@ function eerdereRapportagesBlokken(eerdereRapportages: EerdereRapportage[]): Con
 
 // Zet een cache-breakpoint (1h) op het laatste blok vóór de documenten en
 // eerdere rapportages — dat is verreweg het duurste deel van de input (bij
-// een omvangrijke zaak al gauw honderden PDF-pagina's). Een retry op
-// dezelfde zaak binnen dat uur (bv. na een mislukte poging door de
-// serverless-tijdslimiet, die zelf al enkele minuten duurt) hoeft die
-// documenten dan niet tegen het volle tarief opnieuw te laten verwerken.
-// afsluitingTekst blijft na het breakpoint staan — die is klein en verschilt
-// niet tussen pogingen, dus dat maakt niets uit.
-function cachedeGebruikersinhoud(
-  opdrachtTekst: string,
-  input: RapportageInput,
-  afsluitingTekst: string
-): ContentBlock[] {
+// een omvangrijke zaak al gauw honderden PDF-pagina's). Dit blok is bij
+// ELKE stap van de generatie (zie GENERATIE_STAPPEN hieronder) identiek,
+// dus vanaf de tweede stap leest Claude dit uit de cache in plaats van de
+// documenten opnieuw te verwerken — dat is de kern van waarom stapsgewijs
+// genereren per stap ruim binnen de tijdslimiet blijft, ook al worden de
+// documenten er formeel "opnieuw" bij elke aanroep meegestuurd.
+function cachedeGebruikersinhoud(opdrachtTekst: string, input: RapportageInput): ContentBlock[] {
   const inhoud: ContentBlock[] = [
     { type: 'text', text: opdrachtTekst },
     ...eerdereRapportagesBlokken(input.eerdereRapportages),
@@ -156,13 +147,10 @@ function cachedeGebruikersinhoud(
   const laatste = inhoud[inhoud.length - 1]
   if (laatste) laatste.cache_control = { type: 'ephemeral', ttl: '1h' }
 
-  inhoud.push({ type: 'text', text: afsluitingTekst })
   return inhoud
 }
 
-export async function genereerRapportageTekst(input: RapportageInput): Promise<RapportageResultaat> {
-  const client = createClaudeClient()
-
+function opdrachtTekstVoor(input: RapportageInput): string {
   const ondernemingenTekst =
     input.ondernemingen.length > 0
       ? input.ondernemingen
@@ -184,7 +172,7 @@ export async function genereerRapportageTekst(input: RapportageInput): Promise<R
     ? `Aanvullende informatie/instructies van de bedrijfskundige voor deze specifieke versie (weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.extraContext}\n\n`
     : ''
 
-  const opdrachtTekst = `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
+  return `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
 
 Betrokkene: ${input.naamBetrokkene}
 Dossiernummer: ${input.dossiernummer ?? 'onbekend'}
@@ -196,61 +184,131 @@ ${ondernemingenTekst}
 Verzekeraar: ${input.verzekeraar.naam ?? 'onbekend'}${input.verzekeraar.contactpersoon ? `, contactpersoon ${input.verzekeraar.contactpersoon}` : ''}${input.verzekeraar.email ? `, ${input.verzekeraar.email}` : ''}${input.verzekeraar.kenmerk ? `, kenmerk ${input.verzekeraar.kenmerk}` : ''}
 Belangenbehartiger: ${input.belangenbehartiger.bureau ?? 'onbekend'}${input.belangenbehartiger.naam ? `, ${input.belangenbehartiger.naam}` : ''}${input.belangenbehartiger.email ? `, ${input.belangenbehartiger.email}` : ''}${input.belangenbehartiger.kenmerk ? `, kenmerk ${input.belangenbehartiger.kenmerk}` : ''}
 
-${notitiesTekst}${extraContextTekst}Hieronder volgen eventuele eerdere rapportages voor dit dossier, de aangeleverde documenten (als tekst, PDF of scan), gevolgd door de opdracht.`
+${notitiesTekst}${extraContextTekst}Hieronder volgen eventuele eerdere rapportages voor dit dossier en de aangeleverde documenten (als tekst, PDF of scan). Daarna volgt, per stap, de instructie voor het deel van de rapportage dat je op dat moment moet schrijven — dit gebeurt in meerdere stappen om binnen de technische tijdslimiet per aanroep te blijven. Schrijf bij elke stap UITSLUITEND het gevraagde deel; wat je in een vorige stap al hebt geschreven staat hieronder als eerdere assistent-turn en hoeft niet herhaald te worden.`
+}
 
-  const afsluitingTekst = `Baseer de analyse uitsluitend op de hierboven aangeleverde documenten (en, waar expliciet toegestaan in de sjabloon, actuele branche-/marktinformatie die je zelf opzoekt). Waar informatie ontbreekt of onduidelijk is (ook als een PDF/scan onleesbaar of onvolledig blijkt), benoem dit expliciet in plaats van te verzinnen. Dit is een CONCEPT — markeer aannames duidelijk zodat de bedrijfskundige ze kan controleren.
+interface GeneratieStap {
+  naam: string
+  instructie: string
+  maxTokens: number
+}
 
-Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met precies "${SUGGESTIES_SCHEIDING}" (deze regel en alles daarna maakt GEEN deel uit van de rapportage zelf — het wordt er automatisch uitgehaald en apart getoond aan de bedrijfskundige, niet in het Word-document). Geef daarin een korte, puntsgewijze lijst (2-6 punten) van concrete aanvullende informatie die de analyse zou verbeteren als die alsnog wordt aangeleverd (bv. een overzicht van de tien grootste klanten, een nog ontbrekende aangifte IB of jaarrekening, een gespecificeerde urenregistratie). Is er niets zinvols te suggereren, schrijf dan alleen "Geen aanvullende suggesties." na de scheidingsregel.`
+// De generatie is opgeknipt in stappen die elk ruim binnen een veilige
+// aanroeptijd moeten blijven. Stap 0 doet welbewust geen rapportagewerk —
+// het enige doel is de (dure, niet-cachebare) documentverwerking een keer
+// te laten gebeuren zodat elke volgende stap een snelle cache-read is in
+// plaats van de documenten opnieuw te lezen. De overige stappen volgen de
+// hoofdstukindeling uit sjabloon.ts.
+export const GENERATIE_STAPPEN: GeneratieStap[] = [
+  {
+    naam: 'documenten lezen',
+    instructie:
+      'Lees alle hierboven aangeleverde documenten (en eventuele eerdere rapportages) aandachtig door ter voorbereiding op het schrijven van de rapportage. Schrijf ZELF NOG NIETS van de rapportage — geen omslagblok, geen hoofdstukken. Bevestig alleen kort en puntsgewijs welke documenten je hebt gelezen en welke informatie eventueel onduidelijk, tegenstrijdig of onleesbaar was. Dit tekstje wordt niet in de uiteindelijke rapportage gebruikt.',
+    maxTokens: 1024,
+  },
+  {
+    naam: 'omslag en algemeen',
+    instructie:
+      'Schrijf nu uitsluitend het omslag/gegevensblok, hoofdstuk 1 (ALGEMEEN, met 1.1/1.2/1.3) en hoofdstuk 2 (ALGEMENE BEDRIJFSINFORMATIE) van de rapportage, exact volgens de sjabloon-structuur. Schrijf nog GEEN volgende hoofdstukken en herhaal niets uit je vorige antwoord (dat was alleen een leesbevestiging, geen onderdeel van de rapportage).',
+    maxTokens: 4000,
+  },
+  {
+    naam: 'financieel vóór ongeval',
+    instructie:
+      'Schrijf nu uitsluitend hoofdstuk 3 (FINANCIËLE ANALYSE ONDERNEMING VOORAFGAAND AAN HET ONGEVAL) volgens de sjabloon-instructie voor dat hoofdstuk — inclusief de instructie om dit hoofdstuk over te slaan (dan is een lege of zeer korte reactie hier prima) als dit bij een vervolgrapportage al in een eerdere rapportage is behandeld. Schrijf geen andere hoofdstukken en herhaal niets van hoofdstuk 1/2.',
+    maxTokens: 8000,
+  },
+  {
+    naam: 'financieel na ongeval',
+    instructie:
+      'Schrijf nu uitsluitend hoofdstuk 4 (FINANCIËLE ANALYSE ONDERNEMING NA HET ONGEVAL) volgens de sjabloon-instructie. Schrijf geen andere hoofdstukken en herhaal niets van de vorige hoofdstukken.',
+    maxTokens: 8000,
+  },
+  {
+    naam: 'afronding',
+    instructie: `Schrijf nu de rapportage af: hoofdstuk 5 (BEANTWOORDING VRAGEN, inclusief het verlies-aan-verdienvermogen/would-be-onderdeel en, indien van toepassing, het DGA-dividendtekstblok volgens de sjabloon-instructie), het hoofdstuk VOORTGANG, de ONDERTEKENING en de BIJLAGEN-lijst. Herhaal niets van de vorige hoofdstukken.
 
-  // max_tokens is a cap on thinking + response text combined (thinking is on
-  // by default on claude-opus-5) — streamed since output this large risks an
-  // HTTP timeout on a non-streaming call. Trimmed from 32000: this call also
-  // has to fit inside Vercel's function-duration limit (300s on the current
-  // plan, confirmed by a real timeout on a large vervolgrapportage with many
-  // documents), and a lower ceiling on thinking+output is one of the few
-  // levers available to keep worst-case latency down without an
-  // architecture change (background job) — see also the web_search
-  // max_uses reduction below.
+Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met precies "${SUGGESTIES_SCHEIDING}" (deze regel en alles daarna maakt GEEN deel uit van de rapportage zelf — het wordt er automatisch uitgehaald en apart getoond aan de bedrijfskundige, niet in het Word-document). Geef daarin een korte, puntsgewijze lijst (2-6 punten) van concrete aanvullende informatie die de analyse zou verbeteren als die alsnog wordt aangeleverd (bv. een overzicht van de tien grootste klanten, een nog ontbrekende aangifte IB of jaarrekening, een gespecificeerde urenregistratie). Is er niets zinvols te suggereren, schrijf dan alleen "Geen aanvullende suggesties." na de scheidingsregel.`,
+    maxTokens: 16000,
+  },
+]
+
+export interface StapResultaat {
+  nieuweTekst: string
+  klaar: boolean
+  rapportage: string
+  suggesties: string | null
+}
+
+// Voert precies één stap van GENERATIE_STAPPEN uit en geeft het nieuwe
+// tekstfragment terug (plus, bij de laatste stap, de opgesplitste
+// rapportage/suggesties). De aanroeper (server action) plakt nieuweTekst
+// aan de al opgebouwde tekst en roept deze functie voor de volgende stap
+// pas weer aan bij de volgende poll vanuit de browser — zie actions.ts.
+export async function voerGeneratieStapUit(
+  input: RapportageInput,
+  stapIndex: number,
+  tekstTotNuToe: string
+): Promise<StapResultaat> {
+  const stap = GENERATIE_STAPPEN[stapIndex]
+  if (!stap) throw new Error(`Onbekende generatiestap: ${stapIndex}`)
+
+  const client = createClaudeClient()
+
+  const gebruikersBlokken = cachedeGebruikersinhoud(opdrachtTekstVoor(input), input)
+
+  const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: gebruikersBlokken }]
+
+  if (tekstTotNuToe.trim()) {
+    messages.push({
+      role: 'assistant',
+      // Cache ook de al opgebouwde tekst (default 5m ttl is ruim genoeg —
+      // de stappen volgen elkaar in dezelfde generatiesessie snel op) zodat
+      // ook dit deel niet bij elke stap opnieuw verwerkt hoeft te worden.
+      content: [{ type: 'text', text: tekstTotNuToe, cache_control: { type: 'ephemeral' } }],
+    })
+  }
+
+  messages.push({ role: 'user', content: stap.instructie })
+
   const stream = client.messages.stream({
     model: 'claude-opus-5',
-    max_tokens: 24000,
-    // max_uses laag gehouden — elke zoekopdracht kost een volledige
-    // round-trip binnen dezelfde (tijdgelimiteerde) generatie; bij een
-    // omvangrijke zaak (veel documenten, evt. eerdere rapportages) telt dat
-    // merkbaar mee in de totale doorlooptijd.
+    max_tokens: stap.maxTokens,
     tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }],
     system: [
       {
         type: 'text',
         text: `Je bent een bedrijfskundige die rapportages opstelt over gemiste inkomsten van ondernemers met letsel, in opdracht van verzekeraars. Schrijf in het Nederlands, zakelijk en feitelijk. Volg exact de onderstaande structuur.\n\n${RAPPORTAGE_SJABLOON}`,
-        // 1h i.p.v. de standaard 5 minuten — bij een omvangrijke zaak duurt
-        // één (mislukte) poging vaak al bijna 5 minuten, waardoor de
-        // standaard cache-duur een retry net niet meer zou dekken.
         cache_control: { type: 'ephemeral', ttl: '1h' },
       },
     ],
-    messages: [
-      {
-        role: 'user',
-        content: cachedeGebruikersinhoud(opdrachtTekst, input, afsluitingTekst),
-      },
-    ],
+    messages,
   })
 
   const message = await stream.finalMessage()
 
-  const volledigeTekst = message.content
+  const nieuweTekst = message.content
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
     .join('\n')
+    .trim()
 
-  const scheidingIndex = volledigeTekst.indexOf(SUGGESTIES_SCHEIDING)
-  if (scheidingIndex === -1) {
-    return { rapportage: volledigeTekst.trim(), suggesties: null }
+  const isLaatsteStap = stapIndex === GENERATIE_STAPPEN.length - 1
+  if (!isLaatsteStap) {
+    // Stap 0 (documenten lezen) levert geen rapportagetekst op — die
+    // leesbevestiging hoort niet in de uiteindelijke rapportage.
+    const telTekst = stapIndex === 0 ? '' : nieuweTekst
+    return { nieuweTekst: telTekst, klaar: false, rapportage: tekstTotNuToe + telTekst, suggesties: null }
   }
 
+  const scheidingIndex = nieuweTekst.indexOf(SUGGESTIES_SCHEIDING)
+  const rapportageDeel = scheidingIndex === -1 ? nieuweTekst : nieuweTekst.slice(0, scheidingIndex).trim()
+  const suggesties = scheidingIndex === -1 ? null : nieuweTekst.slice(scheidingIndex + SUGGESTIES_SCHEIDING.length).trim() || null
+
   return {
-    rapportage: volledigeTekst.slice(0, scheidingIndex).trim(),
-    suggesties: volledigeTekst.slice(scheidingIndex + SUGGESTIES_SCHEIDING.length).trim() || null,
+    nieuweTekst: rapportageDeel,
+    klaar: true,
+    rapportage: (tekstTotNuToe + rapportageDeel).trim(),
+    suggesties,
   }
 }
