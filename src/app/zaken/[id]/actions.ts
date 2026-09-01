@@ -45,6 +45,12 @@ async function laadRapportageInput(
     .select('inhoud, created_at')
     .eq('zaak_id', zaakId)
     .order('created_at')
+  const { data: gesprekRows } = await supabase
+    .from('zaak_gesprekken')
+    .select('transcript, opgenomen_op')
+    .eq('zaak_id', zaakId)
+    .eq('status', 'klaar')
+    .order('opgenomen_op')
 
   if (!zaak || !ondernemingenRows || !documentenRows) {
     throw new Error('Zaakgegevens konden niet worden geladen')
@@ -105,6 +111,12 @@ async function laadRapportageInput(
       datum: new Date(r.created_at).toLocaleDateString('nl-NL'),
       inhoud: r.inhoud,
     })),
+    gesprekken: (gesprekRows ?? [])
+      .filter((g) => g.transcript)
+      .map((g) => ({
+        datum: new Date(g.opgenomen_op).toLocaleDateString('nl-NL'),
+        transcript: g.transcript!,
+      })),
   }
 }
 

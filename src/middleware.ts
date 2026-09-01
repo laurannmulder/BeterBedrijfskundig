@@ -23,7 +23,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // .webmanifest toegevoegd — anders redirect de middleware de manifest-
+  // aanvraag zelf naar /login, waardoor browsers "Zet op beginscherm" niet
+  // kunnen aanbieden (dat gebeurt ook los van de ingelogde status).
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
   ],
 }

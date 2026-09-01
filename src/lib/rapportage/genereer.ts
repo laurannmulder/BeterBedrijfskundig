@@ -44,6 +44,11 @@ export interface EerdereRapportage {
   inhoud: string
 }
 
+export interface Gesprek {
+  datum: string
+  transcript: string
+}
+
 export interface RapportageInput {
   naamBetrokkene: string
   dossiernummer: string | null
@@ -60,6 +65,10 @@ export interface RapportageInput {
   // dit een vervolgrapportage: al behandelde hoofdstukken/vragen/jaren worden
   // niet herhaald, zie sjabloon.ts.
   eerdereRapportages: EerdereRapportage[]
+  // Getranscribeerde opnames van bezoekgesprekken (zaak_gesprekken) — apart
+  // van notities gehouden zodat dit als primaire bron voor "het gesprek met
+  // betrokkene" behandeld wordt, niet als bijzaak, zie sjabloon.ts.
+  gesprekken: Gesprek[]
 }
 
 // Scheidingsteken tussen de rapportage zelf en het losse suggesties-blok
@@ -129,6 +138,27 @@ function eerdereRapportagesBlokken(eerdereRapportages: EerdereRapportage[]): Con
   return blokken
 }
 
+// Apart van eerdereRapportagesBlokken/documentBlokken gehouden (i.p.v. in de
+// generieke notities) zodat een transcript expliciet als primaire bron voor
+// "het gesprek met betrokkene" wordt aangeboden — zie de sjabloon-instructie.
+function gesprekBlokken(gesprekken: Gesprek[]): ContentBlock[] {
+  if (gesprekken.length === 0) return []
+
+  const blokken: ContentBlock[] = [
+    {
+      type: 'text',
+      text: 'TRANSCRIPT(EN) VAN OPGENOMEN GESPREK(KEN) MET BETROKKENE — gebruik dit als primaire bron voor het gesprek met betrokkene, zie de sjabloon-instructie.',
+    },
+  ]
+
+  for (const g of gesprekken) {
+    blokken.push({ type: 'text', text: `### Transcript gesprek d.d. ${g.datum}` })
+    blokken.push({ type: 'text', text: g.transcript })
+  }
+
+  return blokken
+}
+
 // Zet een cache-breakpoint (1h) op het laatste blok vóór de documenten en
 // eerdere rapportages — dat is verreweg het duurste deel van de input (bij
 // een omvangrijke zaak al gauw honderden PDF-pagina's). Dit blok is bij
@@ -141,6 +171,7 @@ function cachedeGebruikersinhoud(opdrachtTekst: string, input: RapportageInput):
   const inhoud: ContentBlock[] = [
     { type: 'text', text: opdrachtTekst },
     ...eerdereRapportagesBlokken(input.eerdereRapportages),
+    ...gesprekBlokken(input.gesprekken),
     ...documentBlokken(input.documenten),
   ]
 
@@ -184,7 +215,7 @@ ${ondernemingenTekst}
 Verzekeraar: ${input.verzekeraar.naam ?? 'onbekend'}${input.verzekeraar.contactpersoon ? `, contactpersoon ${input.verzekeraar.contactpersoon}` : ''}${input.verzekeraar.email ? `, ${input.verzekeraar.email}` : ''}${input.verzekeraar.kenmerk ? `, kenmerk ${input.verzekeraar.kenmerk}` : ''}
 Belangenbehartiger: ${input.belangenbehartiger.bureau ?? 'onbekend'}${input.belangenbehartiger.naam ? `, ${input.belangenbehartiger.naam}` : ''}${input.belangenbehartiger.email ? `, ${input.belangenbehartiger.email}` : ''}${input.belangenbehartiger.kenmerk ? `, kenmerk ${input.belangenbehartiger.kenmerk}` : ''}
 
-${notitiesTekst}${extraContextTekst}Hieronder volgen eventuele eerdere rapportages voor dit dossier en de aangeleverde documenten (als tekst, PDF of scan). Daarna volgt, per stap, de instructie voor het deel van de rapportage dat je op dat moment moet schrijven — dit gebeurt in meerdere stappen om binnen de technische tijdslimiet per aanroep te blijven. Schrijf bij elke stap UITSLUITEND het gevraagde deel; wat je in een vorige stap al hebt geschreven staat hieronder als eerdere assistent-turn en hoeft niet herhaald te worden.`
+${notitiesTekst}${extraContextTekst}Hieronder volgen eventuele eerdere rapportages voor dit dossier, eventuele transcripten van opgenomen gesprekken met betrokkene, en de aangeleverde documenten (als tekst, PDF of scan). Daarna volgt, per stap, de instructie voor het deel van de rapportage dat je op dat moment moet schrijven — dit gebeurt in meerdere stappen om binnen de technische tijdslimiet per aanroep te blijven. Schrijf bij elke stap UITSLUITEND het gevraagde deel; wat je in een vorige stap al hebt geschreven staat hieronder als eerdere assistent-turn en hoeft niet herhaald te worden.`
 }
 
 interface GeneratieStap {

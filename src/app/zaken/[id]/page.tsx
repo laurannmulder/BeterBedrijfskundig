@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Building2, CheckCircle2, ExternalLink, FileText, StickyNote, Trash2, UploadCloud } from 'lucide-react'
+import { Building2, CheckCircle2, ExternalLink, FileText, Mic, StickyNote, Trash2, UploadCloud } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   DOCUMENT_LABELS,
@@ -15,6 +15,7 @@ import { UploadDocumentenForm } from './upload-documenten-form'
 import { GenereerRapportForm } from './genereer-rapport-form'
 import { VerwijderZaakForm } from './verwijder-zaak-form'
 import { NotitieBlok } from './notitie-blok'
+import { GesprekBlok } from './gesprek-blok'
 
 // Zonder deze export gebruikt Vercel de standaard functietijd-limiet, die bij
 // een omvangrijke zaak (veel PDF's, een eerdere rapportage als context, de
@@ -139,6 +140,11 @@ export default async function ZaakDetailPage({
     .select('id, tekst')
     .eq('zaak_id', id)
     .order('created_at')
+  const { data: gesprekken } = await supabase
+    .from('zaak_gesprekken')
+    .select('id, status, transcript, foutmelding, opgenomen_op')
+    .eq('zaak_id', id)
+    .order('opgenomen_op', { ascending: false })
 
   if (!zaak) {
     return (
@@ -285,6 +291,32 @@ export default async function ZaakDetailPage({
                 Toevoegen
               </button>
             </form>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
+                  <Mic className="h-4 w-4" />
+                  Gesprekken
+                </h2>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Opgenomen en getranscribeerde bezoekgesprekken — worden meegenomen bij het genereren van een
+                  rapportage.
+                </p>
+              </div>
+              <LinkButton href={`/zaken/${id}/gesprek/nieuw`} variant="secondary" size="sm">
+                <Mic className="h-3.5 w-3.5" />
+                Opnemen
+              </LinkButton>
+            </div>
+            {gesprekken && gesprekken.length > 0 && (
+              <Card className="divide-y divide-zinc-100">
+                {gesprekken.map((gesprek) => (
+                  <GesprekBlok key={gesprek.id} zaakId={id} gesprek={gesprek} />
+                ))}
+              </Card>
+            )}
           </section>
 
           {zaakDocumenten.length > 0 && (
