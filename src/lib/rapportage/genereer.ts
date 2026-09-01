@@ -177,11 +177,17 @@ ${notitiesTekst}${extraContextTekst}Hieronder volgen eventuele eerdere rapportag
 Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met precies "${SUGGESTIES_SCHEIDING}" (deze regel en alles daarna maakt GEEN deel uit van de rapportage zelf — het wordt er automatisch uitgehaald en apart getoond aan de bedrijfskundige, niet in het Word-document). Geef daarin een korte, puntsgewijze lijst (2-6 punten) van concrete aanvullende informatie die de analyse zou verbeteren als die alsnog wordt aangeleverd (bv. een overzicht van de tien grootste klanten, een nog ontbrekende aangifte IB of jaarrekening, een gespecificeerde urenregistratie). Is er niets zinvols te suggereren, schrijf dan alleen "Geen aanvullende suggesties." na de scheidingsregel.`
 
   // max_tokens is a cap on thinking + response text combined (thinking is on
-  // by default on claude-opus-5) — kept generous, and streamed since output
-  // this large risks an HTTP timeout on a non-streaming call.
+  // by default on claude-opus-5) — streamed since output this large risks an
+  // HTTP timeout on a non-streaming call. Trimmed from 32000: this call also
+  // has to fit inside Vercel's function-duration limit (300s on the current
+  // plan, confirmed by a real timeout on a large vervolgrapportage with many
+  // documents), and a lower ceiling on thinking+output is one of the few
+  // levers available to keep worst-case latency down without an
+  // architecture change (background job) — see also the web_search
+  // max_uses reduction below.
   const stream = client.messages.stream({
     model: 'claude-opus-5',
-    max_tokens: 32000,
+    max_tokens: 24000,
     // max_uses laag gehouden — elke zoekopdracht kost een volledige
     // round-trip binnen dezelfde (tijdgelimiteerde) generatie; bij een
     // omvangrijke zaak (veel documenten, evt. eerdere rapportages) telt dat

@@ -20,12 +20,12 @@ import { NotitieBlok } from './notitie-blok'
 // een omvangrijke zaak (veel PDF's, een eerdere rapportage als context, de
 // web_search-tool) al overschreden kan worden vóórdat Claude klaar is — de
 // generatie lijkt dan vast te lopen terwijl de functie simpelweg is
-// afgebroken (bevestigd: "Task timed out after 300 seconds" bij de eerste
-// live poging met deze limiet). 800s is de max voor Fluid Compute op een
-// Pro-abonnement — LET OP: een hogere waarde dan het abonnement toestaat
-// laat de Vercel-build zelf falen (geen stille afknijping), dus na wijzigen
-// altijd de deploy-status controleren.
-export const maxDuration = 800
+// afgebroken. 300s is bevestigd de daadwerkelijke bovengrens op het huidige
+// Vercel-project (800s gaf een mislukte deploy — dat vereist "Fluid Compute"
+// aan te zetten via Vercel → Settings → Functions, wat niet via CLI/code
+// kan). Zie ook het verlaagde max_tokens/web_search-budget in genereer.ts,
+// bedoeld om de generatie zelf beter binnen 300s te laten passen.
+export const maxDuration = 300
 
 const ZAAK_DOCUMENT_VOLGORDE: DocumentType[] = ['opdrachtbrief', 'aangifte_ib']
 
