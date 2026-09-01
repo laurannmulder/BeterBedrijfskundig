@@ -134,6 +134,32 @@ function eerdereRapportagesBlokken(eerdereRapportages: EerdereRapportage[]): Con
   return blokken
 }
 
+// Zet een cache-breakpoint (1h) op het laatste blok vóór de documenten en
+// eerdere rapportages — dat is verreweg het duurste deel van de input (bij
+// een omvangrijke zaak al gauw honderden PDF-pagina's). Een retry op
+// dezelfde zaak binnen dat uur (bv. na een mislukte poging door de
+// serverless-tijdslimiet, die zelf al enkele minuten duurt) hoeft die
+// documenten dan niet tegen het volle tarief opnieuw te laten verwerken.
+// afsluitingTekst blijft na het breakpoint staan — die is klein en verschilt
+// niet tussen pogingen, dus dat maakt niets uit.
+function cachedeGebruikersinhoud(
+  opdrachtTekst: string,
+  input: RapportageInput,
+  afsluitingTekst: string
+): ContentBlock[] {
+  const inhoud: ContentBlock[] = [
+    { type: 'text', text: opdrachtTekst },
+    ...eerdereRapportagesBlokken(input.eerdereRapportages),
+    ...documentBlokken(input.documenten),
+  ]
+
+  const laatste = inhoud[inhoud.length - 1]
+  if (laatste) laatste.cache_control = { type: 'ephemeral', ttl: '1h' }
+
+  inhoud.push({ type: 'text', text: afsluitingTekst })
+  return inhoud
+}
+
 export async function genereerRapportageTekst(input: RapportageInput): Promise<RapportageResultaat> {
   const client = createClaudeClient()
 
@@ -197,18 +223,16 @@ Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met pr
       {
         type: 'text',
         text: `Je bent een bedrijfskundige die rapportages opstelt over gemiste inkomsten van ondernemers met letsel, in opdracht van verzekeraars. Schrijf in het Nederlands, zakelijk en feitelijk. Volg exact de onderstaande structuur.\n\n${RAPPORTAGE_SJABLOON}`,
-        cache_control: { type: 'ephemeral' },
+        // 1h i.p.v. de standaard 5 minuten — bij een omvangrijke zaak duurt
+        // één (mislukte) poging vaak al bijna 5 minuten, waardoor de
+        // standaard cache-duur een retry net niet meer zou dekken.
+        cache_control: { type: 'ephemeral', ttl: '1h' },
       },
     ],
     messages: [
       {
         role: 'user',
-        content: [
-          { type: 'text', text: opdrachtTekst },
-          ...eerdereRapportagesBlokken(input.eerdereRapportages),
-          ...documentBlokken(input.documenten),
-          { type: 'text', text: afsluitingTekst },
-        ],
+        content: cachedeGebruikersinhoud(opdrachtTekst, input, afsluitingTekst),
       },
     ],
   })
