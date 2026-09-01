@@ -56,9 +56,14 @@ async function vulZaakveldenAan(
   }
 }
 
-// Matcht op naam (case-insensitive, getrimd) tegen bestaande ondernemingen van
-// de zaak. Bij een match wordt alleen aangevuld wat nog leeg is; zonder match
-// wordt een nieuwe onderneming aangemaakt. Geeft null terug als er geen naam
+// Matcht bij voorkeur op KvK-nummer (betrouwbaar, uniek) en anders op naam
+// (case-insensitive, getrimd) tegen bestaande ondernemingen van de zaak. Een
+// onderneming duikt in verschillende documenten vaak op met net iets andere
+// naamvarianten (handelsnaam vs statutaire naam, met/zonder "VOF"-prefix,
+// "h/o"-toevoeging) — zuiver op naam matchen splitst dat dan onterecht in
+// meerdere rijen op, ook al is het overduidelijk dezelfde onderneming. Bij
+// een match wordt alleen aangevuld wat nog leeg is; zonder match wordt een
+// nieuwe onderneming aangemaakt. Geeft null terug als er geen naam
 // geëxtraheerd is (dan is er niets om op te matchen of aan te maken).
 async function matchOfMaakOnderneming(
   supabase: SupabaseClient,
@@ -69,7 +74,10 @@ async function matchOfMaakOnderneming(
   if (!naam) return null
 
   const { data: bestaande } = await supabase.from('ondernemingen').select('*').eq('zaak_id', zaakId)
-  const match = bestaande?.find((o) => o.naam.trim().toLowerCase() === naam.toLowerCase())
+  const kvkNummer = metadata.kvkNummer?.trim()
+  const match =
+    (kvkNummer && bestaande?.find((o) => o.kvk_nummer?.trim() === kvkNummer)) ||
+    bestaande?.find((o) => o.naam.trim().toLowerCase() === naam.toLowerCase())
 
   if (match) {
     const updates: Record<string, string> = {}
