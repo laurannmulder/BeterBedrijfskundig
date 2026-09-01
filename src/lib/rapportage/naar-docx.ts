@@ -112,6 +112,11 @@ function keurmerkParagraaf(): Paragraph {
 // in-app-preview, die staat los van de daadwerkelijke huisstijl.
 const LETTERTYPE = 'Verdana'
 const KOPKLEUR = '702372'
+// Kleur voor [AANNAME: ...]-markeringen (sjabloon.ts) — zelfde amber-tint als
+// de "aandacht nodig"-blokken elders in de app-UI, zodat een aanname in de
+// Word-export meteen visueel opvalt tussen de rest van de tekst.
+const AANNAME_KLEUR = 'B45309'
+const AANNAME_PATROON = /\[AANNAME:[^\]]*\]/g
 
 // De vier vaste omslagblok-koppen (zie sjabloon.ts) — geen markdown-tabel
 // meer, maar een vetgedrukte kopregel + platte veldregels in een kader met
@@ -162,6 +167,29 @@ function omslagblokTabel(kop: string, veldParagrafen: Paragraph[]): Table {
   })
 }
 
+// Splitst platte tekst op [AANNAME: ...]-markeringen en geeft die stukken
+// een eigen kleur — de rest van de tekst behoudt de normale (overgeërfde)
+// kleur, zodat er geen los lettertype/losse stijl per run nodig is.
+function tekstMetAannameKleuring(tekst: string, opts: { bold?: boolean; italics?: boolean }): TextRun[] {
+  const runs: TextRun[] = []
+  let laatsteIndex = 0
+
+  for (const match of tekst.matchAll(AANNAME_PATROON)) {
+    const index = match.index ?? 0
+    if (index > laatsteIndex) {
+      runs.push(new TextRun({ text: tekst.slice(laatsteIndex, index), bold: opts.bold, italics: opts.italics }))
+    }
+    runs.push(new TextRun({ text: match[0], bold: opts.bold, italics: opts.italics, color: AANNAME_KLEUR }))
+    laatsteIndex = index + match[0].length
+  }
+
+  if (laatsteIndex < tekst.length || runs.length === 0) {
+    runs.push(new TextRun({ text: tekst.slice(laatsteIndex), bold: opts.bold, italics: opts.italics }))
+  }
+
+  return runs
+}
+
 function inlineNaarRuns(
   nodes: PhrasingContent[],
   opts: { bold?: boolean; italics?: boolean } = {}
@@ -171,7 +199,7 @@ function inlineNaarRuns(
   for (const node of nodes) {
     switch (node.type) {
       case 'text':
-        runs.push(new TextRun({ text: node.value, bold: opts.bold, italics: opts.italics }))
+        runs.push(...tekstMetAannameKleuring(node.value, opts))
         break
       case 'strong':
         runs.push(...inlineNaarRuns(node.children, { ...opts, bold: true }))
@@ -180,9 +208,10 @@ function inlineNaarRuns(
         runs.push(...inlineNaarRuns(node.children, { ...opts, italics: true }))
         break
       case 'inlineCode':
-        runs.push(
-          new TextRun({ text: node.value, bold: opts.bold, italics: opts.italics, font: 'Courier New' })
-        )
+        // Geen apart lettertype (was Courier New) — de rapportage bevat geen
+        // code, en de gebruiker wil consistent één lettertype door het hele
+        // document.
+        runs.push(...tekstMetAannameKleuring(node.value, opts))
         break
       case 'break':
         runs.push(new TextRun({ text: '', break: 1 }))
