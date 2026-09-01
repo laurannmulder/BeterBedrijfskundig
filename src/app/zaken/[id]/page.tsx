@@ -16,13 +16,16 @@ import { GenereerRapportForm } from './genereer-rapport-form'
 import { VerwijderZaakForm } from './verwijder-zaak-form'
 import { NotitieBlok } from './notitie-blok'
 
-// Zonder deze export gebruikt Vercel de standaard functietijd-limiet, die
-// bij een omvangrijke zaak (veel PDF's, een eerdere rapportage als context,
-// de web_search-tool) al ruimschoots overschreden kan worden vóórdat Claude
-// klaar is — de generatie lijkt dan vast te lopen terwijl de functie
-// simpelweg is afgebroken. 300s is de praktische bovengrens; Vercel knijpt
-// dit vanzelf verder af als het abonnement een lagere limiet toestaat.
-export const maxDuration = 300
+// Zonder deze export gebruikt Vercel de standaard functietijd-limiet, die bij
+// een omvangrijke zaak (veel PDF's, een eerdere rapportage als context, de
+// web_search-tool) al overschreden kan worden vóórdat Claude klaar is — de
+// generatie lijkt dan vast te lopen terwijl de functie simpelweg is
+// afgebroken (bevestigd: "Task timed out after 300 seconds" bij de eerste
+// live poging met deze limiet). 800s is de max voor Fluid Compute op een
+// Pro-abonnement — LET OP: een hogere waarde dan het abonnement toestaat
+// laat de Vercel-build zelf falen (geen stille afknijping), dus na wijzigen
+// altijd de deploy-status controleren.
+export const maxDuration = 800
 
 const ZAAK_DOCUMENT_VOLGORDE: DocumentType[] = ['opdrachtbrief', 'aangifte_ib']
 

@@ -182,7 +182,11 @@ Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met pr
   const stream = client.messages.stream({
     model: 'claude-opus-5',
     max_tokens: 32000,
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
+    // max_uses laag gehouden — elke zoekopdracht kost een volledige
+    // round-trip binnen dezelfde (tijdgelimiteerde) generatie; bij een
+    // omvangrijke zaak (veel documenten, evt. eerdere rapportages) telt dat
+    // merkbaar mee in de totale doorlooptijd.
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }],
     system: [
       {
         type: 'text',
