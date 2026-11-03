@@ -225,19 +225,19 @@ export async function voegNotitieToe(formData: FormData) {
 // Eén vrij tekstveld per zaak (zaken.vragen) voor de vragen van verzekeraar en
 // belangenbehartiger, zoals uit hun e-mail gekopieerd. Een leeg veld wist de
 // vragen — dan valt de generatie terug op zoeken in opdrachtbrief/documenten.
-export async function bewaarVragen(formData: FormData) {
+export type VragenStatus = { ok: boolean; melding: string; tijd: number } | null
+
+export async function bewaarVragen(_vorige: VragenStatus, formData: FormData): Promise<VragenStatus> {
   const zaakId = String(formData.get('zaak_id') ?? '')
   const vragen = String(formData.get('vragen') ?? '').trim() || null
 
   const supabase = await createClient()
   const { error } = await supabase.from('zaken').update({ vragen }).eq('id', zaakId)
 
-  if (error) {
-    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
-  }
+  if (error) return { ok: false, melding: `Opslaan mislukt: ${error.message}`, tijd: Date.now() }
 
   revalidatePath(`/zaken/${zaakId}`)
-  redirect(`/zaken/${zaakId}`)
+  return { ok: true, melding: 'Opgeslagen', tijd: Date.now() }
 }
 
 export async function wijzigNotitie(formData: FormData) {

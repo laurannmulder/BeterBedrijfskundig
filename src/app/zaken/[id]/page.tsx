@@ -23,10 +23,11 @@ import {
 } from '@/lib/documenten/vereisten'
 import { Header } from '@/components/Header'
 import { Card, LinkButton, PageHeader, inputClass } from '@/components/ui'
-import { bewaarVragen, heropenZaak, sluitZaak, verwijderDocument, verwijderZaak, voegNotitieToe } from './actions'
+import { heropenZaak, sluitZaak, verwijderDocument, verwijderZaak, voegNotitieToe } from './actions'
 import { UploadDocumentenForm } from './upload-documenten-form'
 import { GenereerRapportForm } from './genereer-rapport-form'
 import { VerwijderZaakForm } from './verwijder-zaak-form'
+import { VragenForm } from './vragen-form'
 import { SluitZaakForm } from './sluit-zaak-form'
 import { NotitieBlok } from './notitie-blok'
 import { GesprekBlok } from './gesprek-blok'
@@ -315,22 +316,7 @@ export default async function ZaakDetailPage({
                 aanvullende vragen. Dit vormt de vraagstelling van de rapportage.
               </p>
             </div>
-            <form action={bewaarVragen} className="flex flex-col gap-2">
-              <input type="hidden" name="zaak_id" value={id} />
-              <textarea
-                name="vragen"
-                rows={6}
-                defaultValue={zaak.vragen ?? ''}
-                placeholder="Bijv. de vragen uit de opdrachtmail, één per regel of zoals ze in de e-mail staan."
-                className={inputClass}
-              />
-              <button
-                type="submit"
-                className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
-              >
-                Opslaan
-              </button>
-            </form>
+            <VragenForm zaakId={id} beginwaarde={zaak.vragen ?? ''} />
           </section>
 
           <section className="flex flex-col gap-3">
