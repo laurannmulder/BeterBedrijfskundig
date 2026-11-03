@@ -203,8 +203,19 @@ function opdrachtTekstVoor(input: RapportageInput): string {
     ? `Aanvullende informatie/instructies van de bedrijfskundige voor deze specifieke versie (weeg dit mee, maar verzin niets extra's daarbuiten):\n${input.extraContext}\n\n`
     : ''
 
+  // Zonder deze regel kent het model de huidige datum niet — dan gokt het de
+  // rapportagedatum en weet het niet welk boekjaar "lopend" is (zie
+  // hoofdstuk 4 in sjabloon.ts: het lopende jaar heeft nog geen jaarcijfers).
+  const vandaag = new Date().toLocaleDateString('nl-NL', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Amsterdam',
+  })
+
   return `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
 
+Datum vandaag: ${vandaag} (gebruik dit als rapportagedatum; het lopende kalenderjaar is nog niet afgesloten)
 Betrokkene: ${input.naamBetrokkene}
 Dossiernummer: ${input.dossiernummer ?? 'onbekend'}
 Ongevalsdatum: ${input.ongevalsdatum ?? 'onbekend — dient zo mogelijk uit de aangeleverde documenten te worden afgeleid'}
