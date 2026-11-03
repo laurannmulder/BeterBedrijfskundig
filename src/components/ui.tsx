@@ -116,3 +116,14 @@ export const labelClass = 'flex flex-col gap-1.5 text-sm font-medium text-zinc-7
 
 export const fileInputClass =
   'block w-full text-xs text-zinc-500 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-zinc-900 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-zinc-700'
+
+// Compact kengetal-blokje bovenaan een overzichtspagina.
+export function StatCard({ label, waarde, hint }: { label: string; waarde: ReactNode; hint?: string }) {
+  return (
+    <Card className="flex flex-col gap-1 px-5 py-4">
+      <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">{label}</span>
+      <span className="text-3xl font-semibold tracking-tight text-zinc-900">{waarde}</span>
+      {hint && <span className="text-xs text-zinc-500">{hint}</span>}
+    </Card>
+  )
+}

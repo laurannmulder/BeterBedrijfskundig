@@ -37,7 +37,7 @@ async function laadRapportageInput(
   const { data: documentenRows } = await supabase.from('documenten').select('*').eq('zaak_id', zaakId)
   const { data: notitieRows } = await supabase
     .from('zaak_notities')
-    .select('tekst')
+    .select('tekst, soort, created_at')
     .eq('zaak_id', zaakId)
     .order('created_at')
   const { data: eerdereRapportageRows } = await supabase
@@ -105,7 +105,11 @@ async function laadRapportageInput(
       kenmerk: zaak.belangenbehartiger_kenmerk,
     },
     documenten,
-    notities: (notitieRows ?? []).map((n) => n.tekst),
+    notities: (notitieRows ?? []).filter((n) => n.soort !== 'bezoek').map((n) => n.tekst),
+    bezoekaantekeningen: (notitieRows ?? [])
+      .filter((n) => n.soort === 'bezoek')
+      .map((n) => ({ datum: new Date(n.created_at).toLocaleDateString('nl-NL'), tekst: n.tekst })),
+    vragen: zaak.vragen,
     extraContext,
     eerdereRapportages: (eerdereRapportageRows ?? []).map((r) => ({
       datum: new Date(r.created_at).toLocaleDateString('nl-NL'),
@@ -194,6 +198,10 @@ export async function verwijderDocument(formData: FormData) {
 export async function voegNotitieToe(formData: FormData) {
   const zaakId = String(formData.get('zaak_id') ?? '')
   const tekst = String(formData.get('tekst') ?? '').trim()
+  // 'bezoek' = aantekeningen van de fysieke afspraak (eigen blok op de
+  // zaakpagina); alles wat niet expliciet 'bezoek' is, is gewone aanvullende
+  // informatie.
+  const soort = formData.get('soort') === 'bezoek' ? 'bezoek' : 'aanvullend'
 
   if (!tekst) {
     redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Vul eerst tekst in')}`)
@@ -204,7 +212,25 @@ export async function voegNotitieToe(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { error } = await supabase.from('zaak_notities').insert({ zaak_id: zaakId, tekst, created_by: user!.id })
+  const { error } = await supabase.from('zaak_notities').insert({ zaak_id: zaakId, tekst, soort, created_by: user!.id })
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}`)
+}
+
+// Eén vrij tekstveld per zaak (zaken.vragen) voor de vragen van verzekeraar en
+// belangenbehartiger, zoals uit hun e-mail gekopieerd. Een leeg veld wist de
+// vragen — dan valt de generatie terug op zoeken in opdrachtbrief/documenten.
+export async function bewaarVragen(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const vragen = String(formData.get('vragen') ?? '').trim() || null
+
+  const supabase = await createClient()
+  const { error } = await supabase.from('zaken').update({ vragen }).eq('id', zaakId)
 
   if (error) {
     redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
@@ -249,6 +275,42 @@ export async function verwijderNotitie(formData: FormData) {
   }
 
   revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}`)
+}
+
+// Afsluiten verwijdert niets: de zaak verhuist naar "Afgesloten zaken" (het
+// archief) met al zijn documenten, rapportages en aantekeningen, en kan
+// altijd weer heropend worden. Verwijderen blijft een aparte, harde actie.
+export async function sluitZaak(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('zaken')
+    .update({ afgesloten_op: new Date().toISOString() })
+    .eq('id', zaakId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath('/')
+  revalidatePath('/afgesloten')
+  redirect('/afgesloten')
+}
+
+export async function heropenZaak(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const supabase = await createClient()
+
+  const { error } = await supabase.from('zaken').update({ afgesloten_op: null }).eq('id', zaakId)
+
+  if (error) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath('/')
+  revalidatePath('/afgesloten')
   redirect(`/zaken/${zaakId}`)
 }
 

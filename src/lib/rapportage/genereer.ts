@@ -49,6 +49,11 @@ export interface Gesprek {
   transcript: string
 }
 
+export interface Bezoekaantekening {
+  datum: string
+  tekst: string
+}
+
 export interface RapportageInput {
   naamBetrokkene: string
   dossiernummer: string | null
@@ -69,6 +74,12 @@ export interface RapportageInput {
   // van notities gehouden zodat dit als primaire bron voor "het gesprek met
   // betrokkene" behandeld wordt, niet als bijzaak, zie sjabloon.ts.
   gesprekken: Gesprek[]
+  // Vragen van verzekeraar/belangenbehartiger, door de bedrijfskundige uit
+  // hun e-mail gekopieerd (zaken.vragen) — vormen direct de Vraagstelling.
+  vragen: string | null
+  // Getypte aantekeningen van de fysieke afspraak (zaak_notities, soort
+  // 'bezoek') — net als een transcript een primaire bron voor het gesprek.
+  bezoekaantekeningen: Bezoekaantekening[]
 }
 
 // Scheidingsteken tussen de rapportage zelf en het losse suggesties-blok
@@ -159,6 +170,35 @@ function gesprekBlokken(gesprekken: Gesprek[]): ContentBlock[] {
   return blokken
 }
 
+function vragenBlokken(vragen: string | null): ContentBlock[] {
+  if (!vragen?.trim()) return []
+
+  return [
+    {
+      type: 'text',
+      text: `VRAGEN VAN VERZEKERAAR/BELANGENBEHARTIGER — door de bedrijfskundige uit hun e-mail gekopieerd (inclusief eventuele aanvullende vragen). Dit is de vraagstelling voor deze rapportage, zie de sjabloon-instructie bij 1.2:\n\n${vragen.trim()}`,
+    },
+  ]
+}
+
+function bezoekaantekeningBlokken(aantekeningen: Bezoekaantekening[]): ContentBlock[] {
+  if (aantekeningen.length === 0) return []
+
+  const blokken: ContentBlock[] = [
+    {
+      type: 'text',
+      text: 'AANTEKENINGEN VAN HET BEZOEK — getypte aantekeningen van de bedrijfskundige van de fysieke afspraak met betrokkene; gebruik dit als primaire bron voor het gesprek met betrokkene, zie de sjabloon-instructie bij 1.3.',
+    },
+  ]
+
+  for (const a of aantekeningen) {
+    blokken.push({ type: 'text', text: `### Aantekening bezoek d.d. ${a.datum}` })
+    blokken.push({ type: 'text', text: a.tekst })
+  }
+
+  return blokken
+}
+
 // Zet een cache-breakpoint (1h) op het laatste blok vóór de documenten en
 // eerdere rapportages — dat is verreweg het duurste deel van de input (bij
 // een omvangrijke zaak al gauw honderden PDF-pagina's). Dit blok is bij
@@ -171,7 +211,9 @@ function cachedeGebruikersinhoud(opdrachtTekst: string, input: RapportageInput):
   const inhoud: ContentBlock[] = [
     { type: 'text', text: opdrachtTekst },
     ...eerdereRapportagesBlokken(input.eerdereRapportages),
+    ...vragenBlokken(input.vragen),
     ...gesprekBlokken(input.gesprekken),
+    ...bezoekaantekeningBlokken(input.bezoekaantekeningen),
     ...documentBlokken(input.documenten),
   ]
 
@@ -205,7 +247,7 @@ function opdrachtTekstVoor(input: RapportageInput): string {
 
   // Zonder deze regel kent het model de huidige datum niet — dan gokt het de
   // rapportagedatum en weet het niet welk boekjaar "lopend" is (zie
-  // hoofdstuk 4 in sjabloon.ts: het lopende jaar heeft nog geen jaarcijfers).
+  // hoofdstuk 5 in sjabloon.ts: het lopende jaar heeft nog geen jaarcijfers).
   const vandaag = new Date().toLocaleDateString('nl-NL', {
     day: 'numeric',
     month: 'long',
@@ -233,6 +275,9 @@ interface GeneratieStap {
   naam: string
   instructie: string
   maxTokens: number
+  // Alleen de brancheblok-stap mag zoeken: branche-informatie staat
+  // losstaand in hoofdstuk 3 en mag de analyse niet voeden (zie sjabloon.ts).
+  webZoeken?: boolean
 }
 
 // De generatie is opgeknipt in stappen die elk ruim binnen een veilige
@@ -255,25 +300,39 @@ export const GENERATIE_STAPPEN: GeneratieStap[] = [
     maxTokens: 4000,
   },
   {
+    naam: 'branche-informatie',
+    instructie:
+      'Schrijf nu uitsluitend hoofdstuk 3 (BRANCHE-INFORMATIE) volgens de sjabloon-instructie: een losstaand brancheoverzicht op basis van actuele, betrouwbare bronnen die je opzoekt. Is dit hoofdstuk bij een vervolgrapportage al in een eerdere rapportage opgenomen, dan is een lege reactie prima. Schrijf geen andere hoofdstukken en herhaal niets van hoofdstuk 1/2.',
+    maxTokens: 6000,
+    webZoeken: true,
+  },
+  {
     naam: 'financieel vóór ongeval',
     instructie:
-      'Schrijf nu uitsluitend hoofdstuk 3 (FINANCIËLE ANALYSE ONDERNEMING VOORAFGAAND AAN HET ONGEVAL) volgens de sjabloon-instructie voor dat hoofdstuk — inclusief de instructie om dit hoofdstuk over te slaan (dan is een lege of zeer korte reactie hier prima) als dit bij een vervolgrapportage al in een eerdere rapportage is behandeld. Schrijf geen andere hoofdstukken en herhaal niets van hoofdstuk 1/2.',
+      'Schrijf nu uitsluitend hoofdstuk 4 (FINANCIËLE ANALYSE ONDERNEMING VOORAFGAAND AAN HET ONGEVAL) volgens de sjabloon-instructie voor dat hoofdstuk — inclusief de instructie om dit hoofdstuk over te slaan (dan is een lege of zeer korte reactie hier prima) als dit bij een vervolgrapportage al in een eerdere rapportage is behandeld. Gebruik de branche-informatie uit hoofdstuk 3 niet in deze analyse. Schrijf geen andere hoofdstukken en herhaal niets van de vorige hoofdstukken.',
     maxTokens: 8000,
   },
   {
     naam: 'financieel na ongeval',
     instructie:
-      'Schrijf nu uitsluitend hoofdstuk 4 (FINANCIËLE ANALYSE ONDERNEMING NA HET ONGEVAL) volgens de sjabloon-instructie. Schrijf geen andere hoofdstukken en herhaal niets van de vorige hoofdstukken.',
+      'Schrijf nu uitsluitend hoofdstuk 5 (FINANCIËLE ANALYSE ONDERNEMING NA HET ONGEVAL) volgens de sjabloon-instructie. Gebruik de branche-informatie uit hoofdstuk 3 niet in deze analyse. Schrijf geen andere hoofdstukken en herhaal niets van de vorige hoofdstukken.',
     maxTokens: 8000,
   },
   {
     naam: 'afronding',
-    instructie: `Schrijf nu de rapportage af: hoofdstuk 5 (BEANTWOORDING VRAGEN, inclusief het verlies-aan-verdienvermogen/would-be-onderdeel en, indien van toepassing, het DGA-dividendtekstblok volgens de sjabloon-instructie), het hoofdstuk VOORTGANG, de ONDERTEKENING en de BIJLAGEN-lijst. Herhaal niets van de vorige hoofdstukken.
+    instructie: `Schrijf nu de rapportage af: hoofdstuk 6 (BEANTWOORDING VRAGEN, inclusief het verlies-aan-verdienvermogen/would-be-onderdeel en, indien van toepassing, het DGA-dividendtekstblok volgens de sjabloon-instructie), het hoofdstuk VOORTGANG, de ONDERTEKENING en de BIJLAGEN-lijst. Gebruik de branche-informatie uit hoofdstuk 3 niet voor de would-be of de berekening van het verlies aan verdienvermogen; verwijs er alleen naar als een gestelde vraag er expliciet om vraagt. Herhaal niets van de vorige hoofdstukken.
 
 Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met precies "${SUGGESTIES_SCHEIDING}" (deze regel en alles daarna maakt GEEN deel uit van de rapportage zelf — het wordt er automatisch uitgehaald en apart getoond aan de bedrijfskundige, niet in het Word-document). Geef daarin een korte, puntsgewijze lijst (2-6 punten) van concrete aanvullende informatie die de analyse zou verbeteren als die alsnog wordt aangeleverd (bv. een overzicht van de tien grootste klanten, een nog ontbrekende aangifte IB of jaarrekening, een gespecificeerde urenregistratie). Is er niets zinvols te suggereren, schrijf dan alleen "Geen aanvullende suggesties." na de scheidingsregel.`,
     maxTokens: 16000,
   },
 ]
+
+// Zonder witregel tussen twee stappen kan een kop ("## 4. ...") achter het
+// laatste woord van de vorige alinea belanden en dan niet meer als kop
+// herkend worden. Lege delen (bv. een overgeslagen hoofdstuk) tellen niet mee.
+function plakAaneen(eerder: string, nieuw: string): string {
+  return [eerder.trim(), nieuw.trim()].filter(Boolean).join('\n\n')
+}
 
 export interface StapResultaat {
   nieuweTekst: string
@@ -316,7 +375,7 @@ export async function voerGeneratieStapUit(
   const stream = client.messages.stream({
     model: 'claude-opus-5',
     max_tokens: stap.maxTokens,
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }],
+    ...(stap.webZoeken ? { tools: [{ type: 'web_search_20250305' as const, name: 'web_search' as const, max_uses: 4 }] } : {}),
     system: [
       {
         type: 'text',
@@ -340,7 +399,7 @@ export async function voerGeneratieStapUit(
     // Stap 0 (documenten lezen) levert geen rapportagetekst op — die
     // leesbevestiging hoort niet in de uiteindelijke rapportage.
     const telTekst = stapIndex === 0 ? '' : nieuweTekst
-    return { nieuweTekst: telTekst, klaar: false, rapportage: tekstTotNuToe + telTekst, suggesties: null }
+    return { nieuweTekst: telTekst, klaar: false, rapportage: plakAaneen(tekstTotNuToe, telTekst), suggesties: null }
   }
 
   const scheidingIndex = nieuweTekst.indexOf(SUGGESTIES_SCHEIDING)
@@ -350,7 +409,7 @@ export async function voerGeneratieStapUit(
   return {
     nieuweTekst: rapportageDeel,
     klaar: true,
-    rapportage: (tekstTotNuToe + rapportageDeel).trim(),
+    rapportage: plakAaneen(tekstTotNuToe, rapportageDeel),
     suggesties,
   }
 }

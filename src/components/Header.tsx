@@ -1,52 +1,43 @@
 import Link from 'next/link'
-import { FilePlus, Users } from 'lucide-react'
-import { signOut } from '@/app/actions'
+import { Plus } from 'lucide-react'
 import { Logo } from '@/components/Logo'
+import { HeaderNav } from '@/components/HeaderNav'
+import { GebruikersMenu } from '@/components/GebruikersMenu'
 import { huidigeGebruiker } from '@/lib/gebruiker'
 
 // Haalt de gebruiker zelf op, zodat elke pagina hem alleen als <Header />
 // hoeft te renderen en het beheerdersvinkje niet door de hele boom hoeft.
+// Op smalle schermen zakt de navigatie naar een eigen rij onder het logo.
 export async function Header() {
   const gebruiker = await huidigeGebruiker()
 
   return (
-    <header className="sticky top-0 z-10 flex w-full items-center justify-between gap-3 border-b border-zinc-200 bg-white/80 px-4 py-3 backdrop-blur-sm sm:px-6">
-      <Link href="/" className="flex shrink-0 items-center">
-        <Logo className="text-lg sm:text-xl" />
-      </Link>
-      <nav className="flex items-center gap-1 text-sm">
-        <Link
-          href="/zaken/nieuw"
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 sm:px-3"
-        >
-          <FilePlus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nieuwe zaak</span>
-        </Link>
-        {gebruiker?.isBeheerder && (
-          <Link
-            href="/admin/gebruikers"
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 sm:px-3"
-          >
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Gebruikers</span>
+    <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/85 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-8">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex shrink-0 items-center" aria-label="Naar lopende zaken">
+            <Logo className="text-xl" />
           </Link>
-        )}
-        <div className="ml-1 flex items-center gap-3 border-l border-zinc-200 pl-3 sm:ml-2 sm:pl-4">
-          {gebruiker?.email && (
-            <span className="hidden items-center gap-2 sm:flex">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-medium text-white">
-                {gebruiker.email[0]?.toUpperCase()}
-              </span>
-              <span className="text-zinc-500">{gebruiker.email}</span>
-            </span>
-          )}
-          <form action={signOut}>
-            <button type="submit" className="text-zinc-500 transition-colors hover:text-zinc-900">
-              Uitloggen
-            </button>
-          </form>
+          <div className="hidden sm:block">
+            <HeaderNav />
+          </div>
         </div>
-      </nav>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/zaken/nieuw"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#12756A] px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#0f5f57]"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Nieuwe zaak</span>
+          </Link>
+          {gebruiker?.email && <GebruikersMenu email={gebruiker.email} isBeheerder={gebruiker.isBeheerder} />}
+        </div>
+
+        <div className="-mx-1 w-full overflow-x-auto sm:hidden">
+          <HeaderNav />
+        </div>
+      </div>
     </header>
   )
 }

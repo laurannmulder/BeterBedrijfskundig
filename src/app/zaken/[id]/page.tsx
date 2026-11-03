@@ -1,5 +1,18 @@
 import Link from 'next/link'
-import { Building2, CheckCircle2, ExternalLink, FileText, Mic, StickyNote, Trash2, UploadCloud } from 'lucide-react'
+import {
+  Archive,
+  Building2,
+  CheckCircle2,
+  ClipboardList,
+  ExternalLink,
+  FileText,
+  MessageSquareText,
+  Mic,
+  RotateCcw,
+  StickyNote,
+  Trash2,
+  UploadCloud,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   DOCUMENT_LABELS,
@@ -10,10 +23,11 @@ import {
 } from '@/lib/documenten/vereisten'
 import { Header } from '@/components/Header'
 import { Card, LinkButton, PageHeader, inputClass } from '@/components/ui'
-import { verwijderDocument, verwijderZaak, voegNotitieToe } from './actions'
+import { bewaarVragen, heropenZaak, sluitZaak, verwijderDocument, verwijderZaak, voegNotitieToe } from './actions'
 import { UploadDocumentenForm } from './upload-documenten-form'
 import { GenereerRapportForm } from './genereer-rapport-form'
 import { VerwijderZaakForm } from './verwijder-zaak-form'
+import { SluitZaakForm } from './sluit-zaak-form'
 import { NotitieBlok } from './notitie-blok'
 import { GesprekBlok } from './gesprek-blok'
 
@@ -137,9 +151,11 @@ export default async function ZaakDetailPage({
     .eq('zaak_id', id)
   const { data: notities } = await supabase
     .from('zaak_notities')
-    .select('id, tekst')
+    .select('id, tekst, soort')
     .eq('zaak_id', id)
     .order('created_at')
+  const aanvullendeNotities = (notities ?? []).filter((n) => n.soort !== 'bezoek')
+  const bezoekNotities = (notities ?? []).filter((n) => n.soort === 'bezoek')
   const { data: gesprekken } = await supabase
     .from('zaak_gesprekken')
     .select('id, status, transcript, foutmelding, opgenomen_op')
@@ -163,6 +179,7 @@ export default async function ZaakDetailPage({
   // Alleen daadwerkelijk geüploade/geclassificeerde documenten tonen — er
   // worden geen lege placeholder-rijen meer aangemaakt, ook oude (vóór deze
   // wijziging vooraf berekende) lege rijen blijven zo verborgen.
+  const afgesloten = Boolean(zaak.afgesloten_op)
   const documenten = (alleDocumenten ?? []).filter((d) => d.status === 'geupload')
   const zaakDocumenten = documenten.filter((d) => d.onderneming_id === null && d.type !== 'overig')
   const overigeDocumenten = documenten.filter((d) => d.type === 'overig')
@@ -239,8 +256,8 @@ export default async function ZaakDetailPage({
 
         <div className="flex min-w-0 flex-1 flex-col gap-8">
           <PageHeader
-            backHref="/"
-            backLabel="Alle zaken"
+            backHref={afgesloten ? '/afgesloten' : '/'}
+            backLabel={afgesloten ? 'Afgesloten zaken' : 'Lopende zaken'}
             title={zaak.naam_betrokkene}
             subtitle={zaak.dossiernummer ? `Dossier ${zaak.dossiernummer}` : undefined}
             actions={
@@ -251,12 +268,70 @@ export default async function ZaakDetailPage({
                     Rapportages ({aantalRapportages})
                   </LinkButton>
                 )}
-                <GenereerRapportForm zaakId={id} />
+                {afgesloten ? (
+                  <form action={heropenZaak} className="contents">
+                    <input type="hidden" name="zaak_id" value={id} />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#12756A] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[#0f5f57]"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Zaak heropenen
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <SluitZaakForm zaakId={id} naamBetrokkene={zaak.naam_betrokkene} action={sluitZaak} />
+                    <GenereerRapportForm zaakId={id} />
+                  </>
+                )}
               </>
             }
           />
 
+          {afgesloten && (
+            <Card className="flex items-start gap-3 border-zinc-300 bg-zinc-50 px-4 py-3 text-sm text-zinc-700">
+              <Archive className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
+              <p>
+                Deze zaak is afgesloten op{' '}
+                <strong className="font-semibold text-zinc-900">
+                  {new Date(zaak.afgesloten_op).toLocaleDateString('nl-NL', { dateStyle: 'long' })}
+                </strong>{' '}
+                en wordt bewaard in het archief. Heropen de zaak om weer een rapport te genereren.
+              </p>
+            </Card>
+          )}
+
           {error && <Card className="border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</Card>}
+
+          <section className="flex flex-col gap-3">
+            <div>
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
+                <MessageSquareText className="h-4 w-4" />
+                Vragen van partijen
+              </h2>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Plak hier de vragen van de verzekeraar en de belangenbehartiger uit hun e-mail, inclusief eventuele
+                aanvullende vragen. Dit vormt de vraagstelling van de rapportage.
+              </p>
+            </div>
+            <form action={bewaarVragen} className="flex flex-col gap-2">
+              <input type="hidden" name="zaak_id" value={id} />
+              <textarea
+                name="vragen"
+                rows={6}
+                defaultValue={zaak.vragen ?? ''}
+                placeholder="Bijv. de vragen uit de opdrachtmail, één per regel of zoals ze in de e-mail staan."
+                className={inputClass}
+              />
+              <button
+                type="submit"
+                className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
+              >
+                Opslaan
+              </button>
+            </form>
+          </section>
 
           <section className="flex flex-col gap-3">
             <div>
@@ -269,9 +344,9 @@ export default async function ZaakDetailPage({
                 alleen bij één versie.
               </p>
             </div>
-            {notities && notities.length > 0 && (
+            {aanvullendeNotities.length > 0 && (
               <Card className="divide-y divide-zinc-100">
-                {notities.map((notitie) => (
+                {aanvullendeNotities.map((notitie) => (
                   <NotitieBlok key={notitie.id} zaakId={id} notitie={notitie} />
                 ))}
               </Card>
@@ -317,6 +392,42 @@ export default async function ZaakDetailPage({
                 ))}
               </Card>
             )}
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div>
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900">
+                <ClipboardList className="h-4 w-4" />
+                Aantekeningen bezoek
+              </h2>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Je eigen aantekeningen van de fysieke afspraak met betrokkene. Worden net als een opname gebruikt
+                als bron voor het gesprek.
+              </p>
+            </div>
+            {bezoekNotities.length > 0 && (
+              <Card className="divide-y divide-zinc-100">
+                {bezoekNotities.map((notitie) => (
+                  <NotitieBlok key={notitie.id} zaakId={id} notitie={notitie} />
+                ))}
+              </Card>
+            )}
+            <form action={voegNotitieToe} className="flex flex-col gap-2">
+              <input type="hidden" name="zaak_id" value={id} />
+              <input type="hidden" name="soort" value="bezoek" />
+              <textarea
+                name="tekst"
+                rows={4}
+                placeholder="Bijv. wat betrokkene vertelde over de onderneming, de gevolgen van het ongeval en de huidige situatie."
+                className={inputClass}
+              />
+              <button
+                type="submit"
+                className="self-start rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-zinc-700"
+              >
+                Toevoegen
+              </button>
+            </form>
           </section>
 
           {zaakDocumenten.length > 0 && (
