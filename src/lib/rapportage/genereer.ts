@@ -291,6 +291,13 @@ interface GeneratieStap {
   // Standaard 'opus'. Lichte stappen die geen documentanalyse nodig hebben
   // draaien op het goedkopere Sonnet-model.
   model?: ModelSleutel
+  // Hoeveel Opus 5.5 mag nadenken. Denken kan bij dat model niet uit en telt
+  // mee in maxTokens: bij 'medium' (de standaard) ging in de praktijk ruim
+  // twee derde van het budget op aan denken, waardoor de uitvoertekst
+  // halverwege werd afgekapt. Schrijfstappen met een voorgeschreven opbouw
+  // draaien daarom op 'low'; de rekenintensieve stappen op 'medium' met een
+  // ruimer budget én de vervolgmechaniek hieronder als vangnet.
+  effort?: 'low' | 'medium'
   // true = de (dure) documentblokken worden niet meegestuurd; de stap baseert
   // zich alleen op de opdracht en de al geschreven hoofdstukken. Prompt-cache
   // werkt per model, dus een stap op een ander model moet ook zijn eigen
@@ -309,13 +316,15 @@ export const GENERATIE_STAPPEN: GeneratieStap[] = [
     naam: 'documenten lezen',
     instructie:
       'Lees alle hierboven aangeleverde documenten (en eventuele eerdere rapportages) aandachtig door ter voorbereiding op het schrijven van de rapportage. Schrijf ZELF NOG NIETS van de rapportage — geen omslagblok, geen hoofdstukken. Bevestig alleen kort en puntsgewijs welke documenten je hebt gelezen en welke informatie eventueel onduidelijk, tegenstrijdig of onleesbaar was. Dit tekstje wordt niet in de uiteindelijke rapportage gebruikt.',
-    maxTokens: 1024,
+    maxTokens: 2048,
+    effort: 'low',
   },
   {
     naam: 'omslag en algemeen',
     instructie:
       'Schrijf nu uitsluitend het omslag/gegevensblok, hoofdstuk 1 (ALGEMEEN, met 1.1/1.2/1.3) en hoofdstuk 2 (ALGEMENE BEDRIJFSINFORMATIE) van de rapportage, exact volgens de sjabloon-structuur. Schrijf nog GEEN volgende hoofdstukken en herhaal niets uit je vorige antwoord (dat was alleen een leesbevestiging, geen onderdeel van de rapportage).',
-    maxTokens: 4000,
+    maxTokens: 8000,
+    effort: 'low',
   },
   {
     naam: 'branche-informatie',
@@ -330,20 +339,23 @@ export const GENERATIE_STAPPEN: GeneratieStap[] = [
     naam: 'financieel vóór ongeval',
     instructie:
       'Schrijf nu uitsluitend hoofdstuk 4 (FINANCIËLE ANALYSE ONDERNEMING VOORAFGAAND AAN HET ONGEVAL) volgens de sjabloon-instructie voor dat hoofdstuk — inclusief de instructie om dit hoofdstuk over te slaan (dan is een lege of zeer korte reactie hier prima) als dit bij een vervolgrapportage al in een eerdere rapportage is behandeld. Gebruik de branche-informatie uit hoofdstuk 3 niet in deze analyse. Schrijf geen andere hoofdstukken en herhaal niets van de vorige hoofdstukken.',
-    maxTokens: 8000,
+    maxTokens: 14000,
+    effort: 'medium',
   },
   {
     naam: 'financieel na ongeval',
     instructie:
       'Schrijf nu uitsluitend hoofdstuk 5 (FINANCIËLE ANALYSE ONDERNEMING NA HET ONGEVAL) volgens de sjabloon-instructie. Gebruik de branche-informatie uit hoofdstuk 3 niet in deze analyse. Schrijf geen andere hoofdstukken en herhaal niets van de vorige hoofdstukken.',
-    maxTokens: 8000,
+    maxTokens: 14000,
+    effort: 'medium',
   },
   {
     naam: 'afronding',
     instructie: `Schrijf nu de rapportage af: hoofdstuk 6 (BEANTWOORDING VRAGEN, inclusief het verlies-aan-verdienvermogen/would-be-onderdeel en, indien van toepassing, het DGA-dividendtekstblok volgens de sjabloon-instructie), het hoofdstuk VOORTGANG, de ONDERTEKENING en de BIJLAGEN-lijst. Gebruik de branche-informatie uit hoofdstuk 3 niet voor de would-be of de berekening van het verlies aan verdienvermogen; verwijs er alleen naar als een gestelde vraag er expliciet om vraagt. Herhaal niets van de vorige hoofdstukken.
 
 Sluit je antwoord af met een aparte sectie, exact ingeleid door een regel met precies "${SUGGESTIES_SCHEIDING}" (deze regel en alles daarna maakt GEEN deel uit van de rapportage zelf — het wordt er automatisch uitgehaald en apart getoond aan de bedrijfskundige, niet in het Word-document). Geef daarin een korte, puntsgewijze lijst (2-6 punten) van concrete aanvullende informatie die de analyse zou verbeteren als die alsnog wordt aangeleverd (bv. een overzicht van de tien grootste klanten, een nog ontbrekende aangifte IB of jaarrekening, een gespecificeerde urenregistratie). Is er niets zinvols te suggereren, schrijf dan alleen "Geen aanvullende suggesties." na de scheidingsregel.`,
-    maxTokens: 16000,
+    maxTokens: 18000,
+    effort: 'medium',
   },
 ]
 
@@ -360,6 +372,10 @@ export interface StapResultaat {
   rapportage: string
   suggesties: string | null
   verbruik: StapVerbruik
+  // true = het tokenbudget van deze stap was op voordat de tekst af was.
+  // De aanroeper bewaart de tekst tot nu toe en roept dezelfde stap opnieuw
+  // aan met vervolg = true; het model schrijft dan verder waar het stopte.
+  afgebroken: boolean
 }
 
 // Voert precies één stap van GENERATIE_STAPPEN uit en geeft het nieuwe
@@ -370,7 +386,8 @@ export interface StapResultaat {
 export async function voerGeneratieStapUit(
   input: RapportageInput,
   stapIndex: number,
-  tekstTotNuToe: string
+  tekstTotNuToe: string,
+  vervolg = false
 ): Promise<StapResultaat> {
   const stap = GENERATIE_STAPPEN[stapIndex]
   if (!stap) throw new Error(`Onbekende generatiestap: ${stapIndex}`)
@@ -396,11 +413,16 @@ export async function voerGeneratieStapUit(
       // Cache ook de al opgebouwde tekst (default 5m ttl is ruim genoeg —
       // de stappen volgen elkaar in dezelfde generatiesessie snel op) zodat
       // ook dit deel niet bij elke stap opnieuw verwerkt hoeft te worden.
-      content: [{ type: 'text', text: tekstTotNuToe, ...(gebruikCache ? { cache_control: { type: 'ephemeral' as const } } : {}) }],
+      content: [{ type: 'text', text: tekstTotNuToe.trimEnd(), ...(gebruikCache ? { cache_control: { type: 'ephemeral' as const } } : {}) }],
     })
   }
 
-  messages.push({ role: 'user', content: stap.instructie })
+  messages.push({
+    role: 'user',
+    content: vervolg
+      ? `${stap.instructie}\n\nLET OP: je vorige antwoord voor deze stap brak halverwege af (tokenlimiet). De tekst die je al hebt geschreven staat hierboven als jouw laatste antwoord. Schrijf NU uitsluitend verder, precies op het punt waar de tekst afbreekt — herhaal niets van wat er al staat en begin niet opnieuw met een kop als je midden in een hoofdstuk zat.`
+      : stap.instructie,
+  })
 
   const stream = client.messages.stream({
     model: MODELLEN[modelSleutel],
@@ -412,6 +434,7 @@ export async function voerGeneratieStapUit(
     ...(modelSleutel === 'sonnet'
       ? { thinking: { type: 'between_tools' } as unknown as Anthropic.Messages.ThinkingConfigParam }
       : {}),
+    ...(modelSleutel === 'opus' && stap.effort ? { output_config: { effort: stap.effort } } : {}),
     ...(stap.webZoeken ? { tools: [{ type: 'web_search_20250305' as const, name: 'web_search' as const, max_uses: 4 }] } : {}),
     system: [
       {
@@ -426,29 +449,39 @@ export async function voerGeneratieStapUit(
   const message = await stream.finalMessage()
   const verbruik = berekenStapVerbruik(stapIndex, stap.naam, modelSleutel, message.usage)
 
-  const nieuweTekst = message.content
+  const ruweTekst = message.content
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
     .map((block) => block.text)
     .join('\n')
-    .trim()
+  // Bij een vervolg sluit de nieuwe tekst direct aan op de vorige (soms
+  // midden in een zin), dus dan niet trimmen en niet met een witregel plakken.
+  const nieuweTekst = vervolg ? ruweTekst.replace(/\s+$/, '') : ruweTekst.trim()
+  const afgebroken = message.stop_reason === 'max_tokens' && stapIndex !== 0
+  const samengevoegd = vervolg ? tekstTotNuToe + nieuweTekst : plakAaneen(tekstTotNuToe, nieuweTekst)
 
   const isLaatsteStap = stapIndex === GENERATIE_STAPPEN.length - 1
-  if (!isLaatsteStap) {
+  if (!isLaatsteStap || afgebroken) {
     // Stap 0 (documenten lezen) levert geen rapportagetekst op — die
     // leesbevestiging hoort niet in de uiteindelijke rapportage.
-    const telTekst = stapIndex === 0 ? '' : nieuweTekst
-    return { nieuweTekst: telTekst, klaar: false, rapportage: plakAaneen(tekstTotNuToe, telTekst), suggesties: null, verbruik }
+    if (stapIndex === 0) {
+      return { nieuweTekst: '', klaar: false, rapportage: tekstTotNuToe, suggesties: null, verbruik, afgebroken: false }
+    }
+    return { nieuweTekst, klaar: false, rapportage: samengevoegd, suggesties: null, verbruik, afgebroken }
   }
 
-  const scheidingIndex = nieuweTekst.indexOf(SUGGESTIES_SCHEIDING)
-  const rapportageDeel = scheidingIndex === -1 ? nieuweTekst : nieuweTekst.slice(0, scheidingIndex).trim()
-  const suggesties = scheidingIndex === -1 ? null : nieuweTekst.slice(scheidingIndex + SUGGESTIES_SCHEIDING.length).trim() || null
+  // Splitsen op de hele tekst, niet alleen op dit antwoord: bij een vervolg
+  // kan de scheidingsregel in een eerder deel van de stap hebben gestaan.
+  const scheidingIndex = samengevoegd.indexOf(SUGGESTIES_SCHEIDING)
+  const rapportageDeel = scheidingIndex === -1 ? samengevoegd.trim() : samengevoegd.slice(0, scheidingIndex).trim()
+  const suggesties =
+    scheidingIndex === -1 ? null : samengevoegd.slice(scheidingIndex + SUGGESTIES_SCHEIDING.length).trim() || null
 
   return {
-    nieuweTekst: rapportageDeel,
+    nieuweTekst,
     klaar: true,
-    rapportage: plakAaneen(tekstTotNuToe, rapportageDeel),
+    rapportage: rapportageDeel,
     suggesties,
     verbruik,
+    afgebroken: false,
   }
 }

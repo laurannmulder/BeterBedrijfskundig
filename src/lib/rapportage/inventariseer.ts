@@ -45,7 +45,8 @@ Regels:
 - Neem alleen gegevens op die echt nodig zijn voor een gestelde vraag of voor een in het concept gemarkeerde aanname/leemte. Vraag niets wat al in de aangeleverde documenten staat.
 - Let op verwijzingen als [AANNAME: …] in het concept: die wijzen op ontbrekende informatie.
 - Schrijf in het Nederlands, kort en zakelijk.
-- Zijn alle vragen volledig te beantwoorden, lever dan een lege lijst.`
+- Zijn alle vragen volledig te beantwoorden, lever dan een lege lijst.
+- Lever je resultaat ALTIJD op door de tool lever_inventarisatie aan te roepen.`
 
 export async function inventariseerOntbrekendeGegevens(args: {
   vragen: string | null
@@ -56,9 +57,12 @@ export async function inventariseerOntbrekendeGegevens(args: {
 
   const message = await client.messages.create({
     model: 'claude-opus-5-5',
-    max_tokens: 4000,
+    // Zie classificeer.ts: denken telt mee in max_tokens. Geen geforceerde
+    // tool_choice: die gaat niet samen met het altijd-aan denken van Opus 5.5.
+    max_tokens: 12000,
+    output_config: { effort: 'low' },
     tools: [TOOL],
-    tool_choice: { type: 'tool', name: TOOL.name },
+    tool_choice: { type: 'auto' },
     system: SYSTEM_PROMPT,
     messages: [
       {

@@ -419,13 +419,32 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
 
   try {
     const input = await laadRapportageInput(supabase, generatie.zaak_id, generatie.extra_context, generatie.voor_bezoek)
-    const stapResultaat = await voerGeneratieStapUit(input, generatie.stap, generatie.rapportage_tekst)
 
-    const verbruik: StapVerbruik[] = [...((generatie.verbruik as StapVerbruik[] | null) ?? []), stapResultaat.verbruik]
+    // Brak de vorige aanroep van déze stap af op de tokenlimiet, dan schrijft
+    // het model nu verder waar het stopte (zie voerGeneratieStapUit).
+    const eerderVerbruik = (generatie.verbruik as StapVerbruik[] | null) ?? []
+    const afgebrokenPogingen = eerderVerbruik.filter((v) => v.stap === generatie.stap && v.afgebroken).length
+    if (afgebrokenPogingen >= 3) {
+      throw new Error(
+        'Een onderdeel van het rapport werd drie keer afgebroken op de tokenlimiet en is niet af te maken. Probeer het opnieuw; blijft het gebeuren, meld dit dan.'
+      )
+    }
+    const stapResultaat = await voerGeneratieStapUit(
+      input,
+      generatie.stap,
+      generatie.rapportage_tekst,
+      afgebrokenPogingen > 0
+    )
+
+    const verbruik: StapVerbruik[] = [
+      ...eerderVerbruik,
+      { ...stapResultaat.verbruik, ...(stapResultaat.afgebroken ? { afgebroken: true } : {}) },
+    ]
     const kostenUsd = Number(verbruik.reduce((som, v) => som + v.kostenUsd, 0).toFixed(4))
 
     if (!stapResultaat.klaar) {
-      const volgendeStap = generatie.stap + 1
+      // Afgebroken stap: zelfde stap nogmaals (als vervolg), niet doorschuiven.
+      const volgendeStap = stapResultaat.afgebroken ? generatie.stap : generatie.stap + 1
       await supabase
         .from('rapportage_generaties')
         .update({

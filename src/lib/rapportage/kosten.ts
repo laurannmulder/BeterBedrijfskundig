@@ -29,6 +29,9 @@ export interface StapVerbruik {
   uitvoer: number
   zoekopdrachten: number
   kostenUsd: number
+  // true = deze aanroep stopte op de tokenlimiet; de stap is daarna in een
+  // vervolgaanroep afgemaakt.
+  afgebroken?: boolean
 }
 
 export function berekenStapVerbruik(

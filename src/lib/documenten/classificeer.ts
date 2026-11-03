@@ -174,7 +174,11 @@ export async function classificeerDocument(inhoud: BestandInhoud): Promise<Class
 
   const message = await client.messages.create({
     model: 'claude-opus-5-5',
-    max_tokens: 4000,
+    // Opus 5.5 kan niet zonder denken en denken telt mee in max_tokens: ruim
+    // budget + lage inspanning, anders blijft er soms geen ruimte over voor
+    // de tool-aanroep en lijkt het document 'niet herkend'.
+    max_tokens: 12000,
+    output_config: { effort: 'low' },
     tools: [TOOL],
     tool_choice: { type: 'auto' },
     system: SYSTEM_PROMPT,
