@@ -55,7 +55,7 @@ export async function inventariseerOntbrekendeGegevens(args: {
   const client = createClaudeClient()
 
   const message = await client.messages.create({
-    model: 'claude-opus-5',
+    model: 'claude-opus-5-5',
     max_tokens: 4000,
     tools: [TOOL],
     tool_choice: { type: 'tool', name: TOOL.name },

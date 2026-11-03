@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { formatKosten } from '@/lib/rapportage/kosten'
 import { Header } from '@/components/Header'
 import { Badge, Card, PageHeader } from '@/components/ui'
 import { wijzigRapportageExtraContext, wijzigRapportageStatus } from '../../actions'
@@ -50,7 +51,9 @@ export default async function RapportageDetailPage({
             new Date(rapportage.created_at).toLocaleString('nl-NL', {
               dateStyle: 'medium',
               timeStyle: 'short',
-            }) + (rapportage.voor_bezoek ? ' · Concept vóór het bezoek' : '')
+            }) +
+            (rapportage.voor_bezoek ? ' · Concept vóór het bezoek' : '') +
+            (formatKosten(rapportage.kosten_usd) ? ` · Kosten ${formatKosten(rapportage.kosten_usd)}` : '')
           }
           actions={
             <>

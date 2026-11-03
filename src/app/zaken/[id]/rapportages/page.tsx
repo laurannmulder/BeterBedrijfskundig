@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { formatKosten } from '@/lib/rapportage/kosten'
 import { Header } from '@/components/Header'
 import { Badge, Card, PageHeader } from '@/components/ui'
 
@@ -11,7 +12,7 @@ export default async function RapportagesPage({ params }: { params: Promise<{ id
   const { data: zaak } = await supabase.from('zaken').select('naam_betrokkene').eq('id', id).single()
   const { data: rapportages } = await supabase
     .from('rapportages')
-    .select('id, status, voor_bezoek, extra_context, created_at')
+    .select('id, status, voor_bezoek, kosten_usd, extra_context, created_at')
     .eq('zaak_id', id)
     .order('created_at', { ascending: false })
 
@@ -48,6 +49,7 @@ export default async function RapportagesPage({ params }: { params: Promise<{ id
                   </span>
                 </div>
                 <span className="flex shrink-0 items-center gap-2">
+                  {formatKosten(r.kosten_usd) && <span className="text-xs text-zinc-400">{formatKosten(r.kosten_usd)}</span>}
                   {r.voor_bezoek && <Badge tone="warning">Concept vóór bezoek</Badge>}
                   <Badge tone={r.status === 'definitief' ? 'success' : 'neutral'}>{r.status}</Badge>
                 </span>

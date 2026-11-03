@@ -19,6 +19,7 @@ import {
   type DocumentType,
   type Rechtsvorm,
 } from '@/lib/documenten/vereisten'
+import { formatKosten } from '@/lib/rapportage/kosten'
 import { Header } from '@/components/Header'
 import { Badge, Card, LinkButton, PageHeader, inputClass } from '@/components/ui'
 import {
@@ -158,7 +159,7 @@ export default async function ZaakDetailPage({
     .order('jaar')
   const { data: rapportages } = await supabase
     .from('rapportages')
-    .select('id, status, voor_bezoek, created_at')
+    .select('id, status, voor_bezoek, kosten_usd, created_at')
     .eq('zaak_id', id)
     .order('created_at', { ascending: false })
   const { data: notities } = await supabase
@@ -262,7 +263,7 @@ export default async function ZaakDetailPage({
     },
   ]
 
-  const rapportLink = (r: { id: string; created_at: string; status: string }) => (
+  const rapportLink = (r: { id: string; created_at: string; status: string; kosten_usd: number | null }) => (
     <Link
       key={r.id}
       href={`/zaken/${id}/rapportages/${r.id}`}
@@ -272,7 +273,10 @@ export default async function ZaakDetailPage({
         <FileText className="h-4 w-4 text-zinc-400" />
         {new Date(r.created_at).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' })}
       </span>
-      <Badge tone={r.status === 'definitief' ? 'success' : 'neutral'}>{r.status}</Badge>
+      <span className="flex items-center gap-2">
+        {formatKosten(r.kosten_usd) && <span className="text-xs text-zinc-400">{formatKosten(r.kosten_usd)}</span>}
+        <Badge tone={r.status === 'definitief' ? 'success' : 'neutral'}>{r.status}</Badge>
+      </span>
     </Link>
   )
 

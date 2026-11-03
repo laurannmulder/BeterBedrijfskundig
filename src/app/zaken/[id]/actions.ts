@@ -14,6 +14,7 @@ import {
   type RapportageInput,
 } from '@/lib/rapportage/genereer'
 import { inventariseerOntbrekendeGegevens } from '@/lib/rapportage/inventariseer'
+import type { StapVerbruik } from '@/lib/rapportage/kosten'
 
 export interface GeuploadBestand {
   path: string
@@ -420,11 +421,20 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
     const input = await laadRapportageInput(supabase, generatie.zaak_id, generatie.extra_context, generatie.voor_bezoek)
     const stapResultaat = await voerGeneratieStapUit(input, generatie.stap, generatie.rapportage_tekst)
 
+    const verbruik: StapVerbruik[] = [...((generatie.verbruik as StapVerbruik[] | null) ?? []), stapResultaat.verbruik]
+    const kostenUsd = Number(verbruik.reduce((som, v) => som + v.kostenUsd, 0).toFixed(4))
+
     if (!stapResultaat.klaar) {
       const volgendeStap = generatie.stap + 1
       await supabase
         .from('rapportage_generaties')
-        .update({ stap: volgendeStap, rapportage_tekst: stapResultaat.rapportage, updated_at: new Date().toISOString() })
+        .update({
+          stap: volgendeStap,
+          rapportage_tekst: stapResultaat.rapportage,
+          verbruik,
+          kosten_usd: kostenUsd,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', generatieId)
 
       return {
@@ -445,6 +455,7 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
         suggesties: stapResultaat.suggesties,
         extra_context: generatie.extra_context,
         voor_bezoek: generatie.voor_bezoek,
+        kosten_usd: kostenUsd,
         gegenereerd_door: generatie.gestart_door,
       })
       .select('id')
@@ -460,6 +471,8 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
         status: 'klaar',
         rapportage_tekst: stapResultaat.rapportage,
         suggesties: stapResultaat.suggesties,
+        verbruik,
+        kosten_usd: kostenUsd,
         rapportage_id: nieuweRapportage.id,
         updated_at: new Date().toISOString(),
       })

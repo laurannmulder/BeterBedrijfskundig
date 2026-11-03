@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { createClaudeClient } from '@/lib/claude'
 import { RAPPORTAGE_SJABLOON } from './sjabloon'
+import { MODELLEN, berekenStapVerbruik, type ModelSleutel, type StapVerbruik } from './kosten'
 
 export interface OndernemingFeit {
   naam: string
@@ -222,7 +223,7 @@ function cachedeGebruikersinhoud(opdrachtTekst: string, input: RapportageInput):
   ]
 
   const laatste = inhoud[inhoud.length - 1]
-  if (laatste) laatste.cache_control = { type: 'ephemeral', ttl: '1h' }
+  if (laatste) laatste.cache_control = { type: 'ephemeral' }
 
   return inhoud
 }
@@ -287,6 +288,14 @@ interface GeneratieStap {
   // Alleen de brancheblok-stap mag zoeken: branche-informatie staat
   // losstaand in hoofdstuk 3 en mag de analyse niet voeden (zie sjabloon.ts).
   webZoeken?: boolean
+  // Standaard 'opus'. Lichte stappen die geen documentanalyse nodig hebben
+  // draaien op het goedkopere Sonnet-model.
+  model?: ModelSleutel
+  // true = de (dure) documentblokken worden niet meegestuurd; de stap baseert
+  // zich alleen op de opdracht en de al geschreven hoofdstukken. Prompt-cache
+  // werkt per model, dus een stap op een ander model moet ook zijn eigen
+  // (kleine) context hebben i.p.v. de documenten opnieuw in te lezen.
+  zonderDocumenten?: boolean
 }
 
 // De generatie is opgeknipt in stappen die elk ruim binnen een veilige
@@ -311,9 +320,11 @@ export const GENERATIE_STAPPEN: GeneratieStap[] = [
   {
     naam: 'branche-informatie',
     instructie:
-      'Schrijf nu uitsluitend hoofdstuk 3 (BRANCHE-INFORMATIE) volgens de sjabloon-instructie: een losstaand brancheoverzicht op basis van actuele, betrouwbare bronnen die je opzoekt. Is dit hoofdstuk bij een vervolgrapportage al in een eerdere rapportage opgenomen, dan is een lege reactie prima. Schrijf geen andere hoofdstukken en herhaal niets van hoofdstuk 1/2.',
+      'Schrijf nu uitsluitend hoofdstuk 3 (BRANCHE-INFORMATIE) volgens de sjabloon-instructie: een losstaand brancheoverzicht op basis van actuele, betrouwbare bronnen die je opzoekt. In deze stap heb je de aangeleverde documenten niet tot je beschikking: bepaal de branche en de activiteiten van de onderneming aan de hand van de zaakgegevens hierboven en de al geschreven hoofdstukken 1 en 2. Is de branche daaruit niet vast te stellen, schrijf dan één korte regel dat de branche nog niet is vastgesteld. Is dit hoofdstuk bij een vervolgrapportage al in een eerdere rapportage opgenomen, dan is een lege reactie prima. Schrijf geen andere hoofdstukken en herhaal niets van hoofdstuk 1/2.',
     maxTokens: 6000,
     webZoeken: true,
+    model: 'sonnet',
+    zonderDocumenten: true,
   },
   {
     naam: 'financieel vóór ongeval',
@@ -348,6 +359,7 @@ export interface StapResultaat {
   klaar: boolean
   rapportage: string
   suggesties: string | null
+  verbruik: StapVerbruik
 }
 
 // Voert precies één stap van GENERATIE_STAPPEN uit en geeft het nieuwe
@@ -365,7 +377,16 @@ export async function voerGeneratieStapUit(
 
   const client = createClaudeClient()
 
-  const gebruikersBlokken = cachedeGebruikersinhoud(opdrachtTekstVoor(input), input)
+  const modelSleutel: ModelSleutel = stap.model ?? 'opus'
+  // Prompt-cache alleen waar hij loont: de Opus-stappen lezen dezelfde (grote)
+  // documentcontext steeds opnieuw. Een eenmalige Sonnet-stap zou alleen de
+  // schrijfopslag betalen. Standaard 5-minuten-cache (goedkoper dan 1 uur);
+  // elke lees-actie ververst hem en de stappen volgen elkaar snel op.
+  const gebruikCache = modelSleutel === 'opus'
+
+  const gebruikersBlokken = stap.zonderDocumenten
+    ? [{ type: 'text' as const, text: opdrachtTekstVoor(input) }]
+    : cachedeGebruikersinhoud(opdrachtTekstVoor(input), input)
 
   const messages: Anthropic.Messages.MessageParam[] = [{ role: 'user', content: gebruikersBlokken }]
 
@@ -375,27 +396,35 @@ export async function voerGeneratieStapUit(
       // Cache ook de al opgebouwde tekst (default 5m ttl is ruim genoeg —
       // de stappen volgen elkaar in dezelfde generatiesessie snel op) zodat
       // ook dit deel niet bij elke stap opnieuw verwerkt hoeft te worden.
-      content: [{ type: 'text', text: tekstTotNuToe, cache_control: { type: 'ephemeral' } }],
+      content: [{ type: 'text', text: tekstTotNuToe, ...(gebruikCache ? { cache_control: { type: 'ephemeral' as const } } : {}) }],
     })
   }
 
   messages.push({ role: 'user', content: stap.instructie })
 
   const stream = client.messages.stream({
-    model: 'claude-opus-5',
+    model: MODELLEN[modelSleutel],
     max_tokens: stap.maxTokens,
+    // Sonnet 5.5 weigert thinking: {type:'disabled'}; 'between_tools' is de
+    // manier om het uit te zetten. Zonder dit eet het denkproces het
+    // tokenbudget van een korte stap op.
+    // De SDK-types kennen 'between_tools' nog niet, de API wel.
+    ...(modelSleutel === 'sonnet'
+      ? { thinking: { type: 'between_tools' } as unknown as Anthropic.Messages.ThinkingConfigParam }
+      : {}),
     ...(stap.webZoeken ? { tools: [{ type: 'web_search_20250305' as const, name: 'web_search' as const, max_uses: 4 }] } : {}),
     system: [
       {
         type: 'text',
         text: `Je bent een bedrijfskundige die rapportages opstelt over gemiste inkomsten van ondernemers met letsel, in opdracht van verzekeraars. Schrijf in het Nederlands, zakelijk en feitelijk. Volg exact de onderstaande structuur.\n\n${RAPPORTAGE_SJABLOON}`,
-        cache_control: { type: 'ephemeral', ttl: '1h' },
+        ...(gebruikCache ? { cache_control: { type: 'ephemeral' as const } } : {}),
       },
     ],
     messages,
   })
 
   const message = await stream.finalMessage()
+  const verbruik = berekenStapVerbruik(stapIndex, stap.naam, modelSleutel, message.usage)
 
   const nieuweTekst = message.content
     .filter((block): block is Extract<typeof block, { type: 'text' }> => block.type === 'text')
@@ -408,7 +437,7 @@ export async function voerGeneratieStapUit(
     // Stap 0 (documenten lezen) levert geen rapportagetekst op — die
     // leesbevestiging hoort niet in de uiteindelijke rapportage.
     const telTekst = stapIndex === 0 ? '' : nieuweTekst
-    return { nieuweTekst: telTekst, klaar: false, rapportage: plakAaneen(tekstTotNuToe, telTekst), suggesties: null }
+    return { nieuweTekst: telTekst, klaar: false, rapportage: plakAaneen(tekstTotNuToe, telTekst), suggesties: null, verbruik }
   }
 
   const scheidingIndex = nieuweTekst.indexOf(SUGGESTIES_SCHEIDING)
@@ -420,5 +449,6 @@ export async function voerGeneratieStapUit(
     klaar: true,
     rapportage: plakAaneen(tekstTotNuToe, rapportageDeel),
     suggesties,
+    verbruik,
   }
 }
