@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { verwerkGeneratieStap, type GeneratieVoortgang } from '../../actions'
+import { hervatGeneratie, verwerkGeneratieStap, type GeneratieVoortgang } from '../../actions'
 
 // Drijft de generatie zelf aan: elke afgeronde stap zet nieuwe state, wat
 // dit effect opnieuw laat lopen (want de status is dan nog 'bezig') en zo de
@@ -48,6 +48,16 @@ export function GeneratieVoortgangWeergave({
       <div className="flex flex-col items-center gap-3 text-center">
         <p className="text-sm font-medium text-red-700">Genereren mislukt</p>
         {voortgang.foutmelding && <p className="max-w-md text-sm text-zinc-600">{voortgang.foutmelding}</p>}
+        <p className="text-xs text-zinc-400">
+          Gestopt bij stap {Math.min(voortgang.stap + 1, voortgang.totaalStappen)} van {voortgang.totaalStappen}.
+        </p>
+        <button
+          type="button"
+          onClick={() => hervatGeneratie(generatieId).then(setVoortgang)}
+          className="rounded-lg bg-[#12756A] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#0f5f57]"
+        >
+          Opnieuw proberen vanaf deze stap
+        </button>
         <Link
           href={`/zaken/${zaakId}`}
           className="text-sm text-zinc-500 underline-offset-4 hover:text-zinc-900 hover:underline"

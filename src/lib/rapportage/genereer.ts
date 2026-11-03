@@ -80,6 +80,10 @@ export interface RapportageInput {
   // Getypte aantekeningen van de fysieke afspraak (zaak_notities, soort
   // 'bezoek') — net als een transcript een primaire bron voor het gesprek.
   bezoekaantekeningen: Bezoekaantekening[]
+  // true = concept in stap 4 van het zaakproces, opgesteld VÓÓR het fysieke
+  // bezoek (zie opdrachtTekstVoor): ontbrekende informatie moet dan
+  // zichtbaar blijven in plaats van opgevuld te worden.
+  voorBezoek: boolean
 }
 
 // Scheidingsteken tussen de rapportage zelf en het losse suggesties-blok
@@ -255,8 +259,13 @@ function opdrachtTekstVoor(input: RapportageInput): string {
     timeZone: 'Europe/Amsterdam',
   })
 
+  const faseTekst = input.voorBezoek
+    ? `FASE: dit concept wordt opgesteld VÓÓR het fysieke gesprek met betrokkene. Beantwoord de gestelde vragen voor zover de aangeleverde documenten dat toelaten. Kan een vraag of onderdeel nog niet (volledig) beantwoord worden, schrijf dan NIET een gevulde of geschatte uitkomst, maar markeer de leemte als [AANNAME: …] met daarin kort welke informatie nog nodig is. Verzin geen gesprekken of bezoekinformatie; die zijn er nog niet.\n\n`
+    : ''
+
   return `Stel een CONCEPT bedrijfskundige rapportage op voor de volgende zaak.
 
+${faseTekst}
 Datum vandaag: ${vandaag} (gebruik dit als rapportagedatum; het lopende kalenderjaar is nog niet afgesloten)
 Betrokkene: ${input.naamBetrokkene}
 Dossiernummer: ${input.dossiernummer ?? 'onbekend'}

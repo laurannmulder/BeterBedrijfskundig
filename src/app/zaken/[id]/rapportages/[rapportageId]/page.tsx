@@ -46,10 +46,12 @@ export default async function RapportageDetailPage({
           backHref={`/zaken/${id}/rapportages`}
           backLabel="Alle rapportages"
           title={`Rapportage — ${zaak?.naam_betrokkene}`}
-          subtitle={new Date(rapportage.created_at).toLocaleString('nl-NL', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })}
+          subtitle={
+            new Date(rapportage.created_at).toLocaleString('nl-NL', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            }) + (rapportage.voor_bezoek ? ' · Concept vóór het bezoek' : '')
+          }
           actions={
             <>
               <a

@@ -11,7 +11,7 @@ export default async function RapportagesPage({ params }: { params: Promise<{ id
   const { data: zaak } = await supabase.from('zaken').select('naam_betrokkene').eq('id', id).single()
   const { data: rapportages } = await supabase
     .from('rapportages')
-    .select('id, status, extra_context, created_at')
+    .select('id, status, voor_bezoek, extra_context, created_at')
     .eq('zaak_id', id)
     .order('created_at', { ascending: false })
 
@@ -47,7 +47,10 @@ export default async function RapportagesPage({ params }: { params: Promise<{ id
                     )}
                   </span>
                 </div>
-                <Badge tone={r.status === 'definitief' ? 'success' : 'neutral'}>{r.status}</Badge>
+                <span className="flex shrink-0 items-center gap-2">
+                  {r.voor_bezoek && <Badge tone="warning">Concept vóór bezoek</Badge>}
+                  <Badge tone={r.status === 'definitief' ? 'success' : 'neutral'}>{r.status}</Badge>
+                </span>
               </Card>
             </Link>
           ))}

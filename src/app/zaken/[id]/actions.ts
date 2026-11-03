@@ -13,6 +13,7 @@ import {
   type OndernemingFeit,
   type RapportageInput,
 } from '@/lib/rapportage/genereer'
+import { inventariseerOntbrekendeGegevens } from '@/lib/rapportage/inventariseer'
 
 export interface GeuploadBestand {
   path: string
@@ -30,7 +31,8 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>
 async function laadRapportageInput(
   supabase: SupabaseClient,
   zaakId: string,
-  extraContext: string | null
+  extraContext: string | null,
+  voorBezoek: boolean
 ): Promise<RapportageInput> {
   const { data: zaak } = await supabase.from('zaken').select('*').eq('id', zaakId).single()
   const { data: ondernemingenRows } = await supabase.from('ondernemingen').select('*').eq('zaak_id', zaakId)
@@ -44,6 +46,7 @@ async function laadRapportageInput(
     .from('rapportages')
     .select('inhoud, created_at')
     .eq('zaak_id', zaakId)
+    .eq('voor_bezoek', false)
     .order('created_at')
   const { data: gesprekRows } = await supabase
     .from('zaak_gesprekken')
@@ -110,6 +113,7 @@ async function laadRapportageInput(
       .filter((n) => n.soort === 'bezoek')
       .map((n) => ({ datum: new Date(n.created_at).toLocaleDateString('nl-NL'), tekst: n.tekst })),
     vragen: zaak.vragen,
+    voorBezoek,
     extraContext,
     eerdereRapportages: (eerdereRapportageRows ?? []).map((r) => ({
       datum: new Date(r.created_at).toLocaleDateString('nl-NL'),
@@ -351,7 +355,8 @@ export async function verwijderZaak(formData: FormData) {
 export async function startRapportGeneratie(
   zaakId: string,
   extraContext: string | null,
-  extraBestanden: GeuploadBestand[]
+  extraBestanden: GeuploadBestand[],
+  voorBezoek = false
 ) {
   const supabase = await createClient()
 
@@ -368,7 +373,7 @@ export async function startRapportGeneratie(
 
   const { data: generatie, error } = await supabase
     .from('rapportage_generaties')
-    .insert({ zaak_id: zaakId, extra_context: extraContext, gestart_door: user!.id })
+    .insert({ zaak_id: zaakId, extra_context: extraContext, gestart_door: user!.id, voor_bezoek: voorBezoek })
     .select('id')
     .single()
 
@@ -412,7 +417,7 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
   }
 
   try {
-    const input = await laadRapportageInput(supabase, generatie.zaak_id, generatie.extra_context)
+    const input = await laadRapportageInput(supabase, generatie.zaak_id, generatie.extra_context, generatie.voor_bezoek)
     const stapResultaat = await voerGeneratieStapUit(input, generatie.stap, generatie.rapportage_tekst)
 
     if (!stapResultaat.klaar) {
@@ -439,6 +444,7 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
         inhoud: stapResultaat.rapportage,
         suggesties: stapResultaat.suggesties,
         extra_context: generatie.extra_context,
+        voor_bezoek: generatie.voor_bezoek,
         gegenereerd_door: generatie.gestart_door,
       })
       .select('id')
@@ -472,13 +478,41 @@ export async function verwerkGeneratieStap(generatieId: string): Promise<Generat
   } catch (fout) {
     // De Claude API geeft af en toe een tijdelijke 5xx/overloaded-fout terug
     // (de SDK retryt dat zelf al een paar keer voor het hier uitkomt).
-    const melding = fout instanceof Error ? fout.message : String(fout)
+    const ruweMelding = fout instanceof Error ? fout.message : String(fout)
+    const melding = /credit balance is too low/i.test(ruweMelding)
+      ? 'Het Anthropic-tegoed is op. Vul het saldo aan (console.anthropic.com → Plans & Billing) en kies daarna "Opnieuw proberen": de al afgeronde stappen blijven bewaard.'
+      : ruweMelding
     await supabase
       .from('rapportage_generaties')
       .update({ status: 'mislukt', foutmelding: melding, updated_at: new Date().toISOString() })
       .eq('id', generatieId)
 
     return { status: 'mislukt', stap: generatie.stap, totaalStappen: GENERATIE_STAPPEN.length, stapNaam: null, rapportageId: null, foutmelding: melding }
+  }
+}
+
+// Zet een mislukte generatie (bv. door een leeg Anthropic-tegoed of een
+// tijdelijke API-fout) weer aan het werk vanaf de stap waar het stopte — de
+// al opgebouwde tekst staat in rapportage_generaties.rapportage_tekst, dus
+// afgeronde (en al betaalde) stappen hoeven niet opnieuw.
+export async function hervatGeneratie(generatieId: string): Promise<GeneratieVoortgang> {
+  const supabase = await createClient()
+  const { data: generatie } = await supabase
+    .from('rapportage_generaties')
+    .update({ status: 'bezig', foutmelding: null, updated_at: new Date().toISOString() })
+    .eq('id', generatieId)
+    .eq('status', 'mislukt')
+    .select('stap')
+    .single()
+
+  const stap = generatie?.stap ?? 0
+  return {
+    status: 'bezig',
+    stap,
+    totaalStappen: GENERATIE_STAPPEN.length,
+    stapNaam: GENERATIE_STAPPEN[stap]?.naam ?? null,
+    rapportageId: null,
+    foutmelding: null,
   }
 }
 
@@ -520,4 +554,141 @@ export async function wijzigRapportageStatus(formData: FormData) {
 
   revalidatePath(`/zaken/${zaakId}/rapportages`)
   redirect(`/zaken/${zaakId}/rapportages/${rapportageId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Zaakproces: stap 5 (inventarisatie) en handmatige afvinkmomenten.
+// ---------------------------------------------------------------------------
+
+// Laat Claude uit de vragen + het meest recente concept afleiden welke
+// gegevens nog opgevraagd moeten worden. Eerdere AI-items worden vervangen;
+// handmatig toegevoegde items blijven staan.
+export async function genereerInventarisatie(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { data: zaak } = await supabase.from('zaken').select('vragen').eq('id', zaakId).single()
+  const { data: concept } = await supabase
+    .from('rapportages')
+    .select('inhoud')
+    .eq('zaak_id', zaakId)
+    .order('voor_bezoek', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const { data: documentRows } = await supabase
+    .from('documenten')
+    .select('type, jaar, storage_path')
+    .eq('zaak_id', zaakId)
+    .eq('status', 'geupload')
+
+  if (!concept) {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Stel eerst een conceptrapportage op (stap 4)')}`)
+  }
+
+  let items
+  try {
+    items = await inventariseerOntbrekendeGegevens({
+      vragen: zaak?.vragen ?? null,
+      concept: concept.inhoud,
+      documentLabels: (documentRows ?? []).map((d) =>
+        d.type === 'overig'
+          ? (d.storage_path?.split('/').pop() ?? DOCUMENT_LABELS.overig)
+          : DOCUMENT_LABELS[d.type as DocumentType] + (d.jaar ? ` ${d.jaar}` : '')
+      ),
+    })
+  } catch (fout) {
+    const melding = fout instanceof Error ? fout.message : String(fout)
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent(`Inventariseren mislukt: ${melding}`)}`)
+  }
+
+  await supabase.from('zaak_inventarisatie_items').delete().eq('zaak_id', zaakId).eq('bron', 'ai')
+
+  if (items.length > 0) {
+    const { error } = await supabase.from('zaak_inventarisatie_items').insert(
+      items.map((item, i) => ({
+        zaak_id: zaakId,
+        tekst: item.gegeven,
+        vraag: item.vraag,
+        bron: 'ai',
+        volgorde: i,
+        created_by: user!.id,
+      }))
+    )
+    if (error) redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  // Een lege lijst is ook een uitkomst ("niets meer nodig"): stap 5 telt dan
+  // als klaar, ook al zijn er geen items om af te vinken.
+  await supabase.from('zaken').update({ inventarisatie_klaar_op: new Date().toISOString() }).eq('id', zaakId)
+
+  revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}#stap-5`)
+}
+
+export async function voegInventarisatieItemToe(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const tekst = String(formData.get('tekst') ?? '').trim()
+  if (!tekst) redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Vul eerst een gegeven in')}#stap-5`)
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { error } = await supabase.from('zaak_inventarisatie_items').insert({
+    zaak_id: zaakId,
+    tekst,
+    bron: 'handmatig',
+    volgorde: 1000,
+    created_by: user!.id,
+  })
+  if (error) redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+
+  revalidatePath(`/zaken/${zaakId}`)
+  redirect(`/zaken/${zaakId}#stap-5`)
+}
+
+export async function wisselInventarisatieItem(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const itemId = String(formData.get('item_id') ?? '')
+  const afgevinkt = formData.get('afgevinkt') === '1'
+
+  const supabase = await createClient()
+  await supabase.from('zaak_inventarisatie_items').update({ afgevinkt }).eq('id', itemId)
+
+  revalidatePath(`/zaken/${zaakId}`)
+}
+
+export async function verwijderInventarisatieItem(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const itemId = String(formData.get('item_id') ?? '')
+
+  const supabase = await createClient()
+  await supabase.from('zaak_inventarisatie_items').delete().eq('id', itemId)
+
+  revalidatePath(`/zaken/${zaakId}`)
+}
+
+// Handmatig een stap als klaar markeren (of weer openen). Alleen voor de
+// stappen die niet vanzelf uit de gegevens af te leiden zijn.
+export async function zetStapMarkering(formData: FormData) {
+  const zaakId = String(formData.get('zaak_id') ?? '')
+  const kolom = String(formData.get('kolom') ?? '')
+  const klaar = formData.get('klaar') === '1'
+
+  if (kolom !== 'inventarisatie_klaar_op' && kolom !== 'bezoek_afgerond_op') {
+    redirect(`/zaken/${zaakId}?error=${encodeURIComponent('Ongeldige stap')}`)
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('zaken')
+    .update({ [kolom]: klaar ? new Date().toISOString() : null })
+    .eq('id', zaakId)
+  if (error) redirect(`/zaken/${zaakId}?error=${encodeURIComponent(error.message)}`)
+
+  revalidatePath(`/zaken/${zaakId}`)
 }
